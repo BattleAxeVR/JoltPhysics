@@ -119,7 +119,7 @@ private:
 
 		mMaxSize = inMaxSize;
 		mMaxLoad = uint32((cMaxLoadFactorNumerator * inMaxSize) / cMaxLoadFactorDenominator);
-		size_type required_size = mMaxSize * (sizeof(KeyValue) + 1) + 15; // Add 15 bytes to mirror the first 15 bytes of the control values
+		size_t required_size = size_t(mMaxSize) * (sizeof(KeyValue) + 1) + 15; // Add 15 bytes to mirror the first 15 bytes of the control values
 		if constexpr (cNeedsAlignedAllocate)
 			mData = reinterpret_cast<KeyValue *>(AlignedAllocate(required_size, alignof(KeyValue)));
 		else
@@ -435,7 +435,7 @@ public:
 	void					clear()
 	{
 		// Delete all elements
-		if constexpr (!is_trivially_destructible<KeyValue>())
+		if constexpr (!std::is_trivially_destructible<KeyValue>())
 			if (!empty())
 				for (size_type i = 0; i < mMaxSize; ++i)
 					if (mControl[i] & cBucketUsed)
