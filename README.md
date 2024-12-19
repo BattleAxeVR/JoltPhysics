@@ -85,12 +85,12 @@ Why create yet another physics engine? Firstly, it has been a personal learning 
 	* Collision with simulated rigid bodies.
 	* Collision tests against soft bodies.
 * Water buoyancy calculations.
-* An optional double precision mode that allows large simulations.
+* An optional double precision mode that allows large worlds.
 
 ## Supported platforms
 
 * Windows (Desktop or UWP) x86/x64/ARM32/ARM64
-* Linux (tested on Ubuntu) x64/ARM64
+* Linux (tested on Ubuntu) x86/x64/ARM32/ARM64/RISC-V64
 * FreeBSD
 * Android x86/x64/ARM32/ARM64
 * Platform Blue (a popular game console) x64
