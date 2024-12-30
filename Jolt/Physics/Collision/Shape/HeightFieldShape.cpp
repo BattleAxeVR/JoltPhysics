@@ -1710,7 +1710,7 @@ public:
 	JPH_INLINE explicit			DecodingContext(const HeightFieldShape *inShape) :
 		mShape(inShape)
 	{
-		static_assert(sizeof(sGridOffsets) / sizeof(uint) == cNumBitsXY + 1, "Offsets array is not long enough");
+		static_assert(std::size(sGridOffsets) == cNumBitsXY + 1, "Offsets array is not long enough");
 
 		// Construct root stack entry
 		mPropertiesStack[0] = 0; // level: 0, x: 0, y: 0
@@ -1869,8 +1869,8 @@ public:
 					uint32 stride = block_size_plus_1 - size_x_plus_1;
 
 					// Start range with a very large inside-out box
-					Vec3 value_min = Vec3::sReplicate(1.0e30f);
-					Vec3 value_max = Vec3::sReplicate(-1.0e30f);
+					Vec3 value_min = Vec3::sReplicate(cLargeFloat);
+					Vec3 value_max = Vec3::sReplicate(-cLargeFloat);
 
 					// Loop over the samples to determine the min and max of this block
 					for (uint32 block_y = 0; block_y < size_y_plus_1; ++block_y)

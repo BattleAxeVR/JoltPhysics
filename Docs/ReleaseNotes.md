@@ -14,7 +14,9 @@ For breaking API changes see [this document](https://github.com/jrouwe/JoltPhysi
 * Added `PhysicsSystem::SetSimShapeFilter`. This allows filtering out collisions between sub shapes within a body and can for example be used to have a single body that contains a low detail simulation shape an a high detail collision query shape.
 * Added an example of a body that's both a sensor and a rigid body in `ContactListenerTest`.
 * Added binary serialization to `SkeletalAnimation`.
-* Added support for RISC-V CPUs.
+* Added support for RISC-V, LoongArch and PowerPC (Little Endian) CPUs.
+* Added the ability to add a sub shape at a specified index in a MutableCompoundShape rather than at the end.
+* The Samples and JoltViewer can run on Linux using Vulkan now. Make sure to install the Vulkan SDK before compiling (see: Build/ubuntu24_install_vulkan_sdk.sh).
 
 ### Bug fixes
 
@@ -22,6 +24,8 @@ For breaking API changes see [this document](https://github.com/jrouwe/JoltPhysi
 * `std::push_heap`/`pop_heap` behave differently on macOS vs Windows/Linux when elements compare equal, this made the cross platform deterministic build not deterministic in some cases.
 * Added overloads for placement new in the `JPH_OVERRIDE_NEW_DELETE` macro, this means it is no longer needed to do `:: new (address) JPH::class_name(constructor_arguments)` but you can do `new (address) JPH::class_name(constructor_arguments)`.
 * Fixed a GCC warning `-Wshadow=global`.
+* BodyInterface::AddForce applied a force per soft body vertex rather than to the whole body, this resulted in a soft body accelerating much more compared to a rigid body of the same mass.
+* Removing a sub shape from a MutableCompoundShape would not update the bounding box if the last shape was removed, which can result in a small performance loss.
 
 ## v5.2.0
 

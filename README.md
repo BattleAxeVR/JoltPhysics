@@ -90,7 +90,7 @@ Why create yet another physics engine? Firstly, it has been a personal learning 
 ## Supported platforms
 
 * Windows (Desktop or UWP) x86/x64/ARM32/ARM64
-* Linux (tested on Ubuntu) x86/x64/ARM32/ARM64/RISC-V64
+* Linux (tested on Ubuntu) x86/x64/ARM32/ARM64/RISC-V64/LoongArch64/PowerPC64LE
 * FreeBSD
 * Android x86/x64/ARM32/ARM64
 * Platform Blue (a popular game console) x64
@@ -135,10 +135,10 @@ If you're interested in how Jolt scales with multiple CPUs and compares to other
 * Docs - Contains documentation for the library.
 * HelloWorld - A simple application demonstrating how to use the Jolt Physics library.
 * Jolt - All source code for the library is in this folder.
-* JoltViewer - It is possible to record the output of the physics engine using the DebugRendererRecorder class (a .jor file), this folder contains the source code to an application that can visualize a recording. This is useful for e.g. visualizing the output of the PerformanceTest from different platforms. Currently available on Windows only.
+* JoltViewer - It is possible to record the output of the physics engine using the DebugRendererRecorder class (a .jor file), this folder contains the source code to an application that can visualize a recording. This is useful for e.g. visualizing the output of the PerformanceTest from different platforms. Currently available on Windows and Linux only.
 * PerformanceTest - Contains a simple application that runs a [performance test](Docs/PerformanceTest.md) and collects timing information.
-* Samples - This contains the sample application, see the [Samples](Docs/Samples.md) section. Currently available on Windows only.
-* TestFramework - A rendering framework to visualize the results of the physics engine. Used by Samples and JoltViewer. Currently available on Windows only.
+* Samples - This contains the sample application, see the [Samples](Docs/Samples.md) section. Currently available on Windows and Linux only.
+* TestFramework - A rendering framework to visualize the results of the physics engine. Used by Samples and JoltViewer. Currently available on Windows and Linux only.
 * UnitTests - A set of unit tests to validate the behavior of the physics engine.
 * WebIncludes - A number of JavaScript resources used by the internal profiling framework of the physics engine.
 
@@ -164,3 +164,5 @@ The project is distributed under the [MIT license](LICENSE).
 ## Contributions
 
 All contributions are welcome! If you intend to make larger changes, please discuss first in the GitHub Discussion section. For non-trivial changes, we require that you agree to a [Contributor Agreement](ContributorAgreement.md). When you create a PR, [CLA assistant](https://cla-assistant.io/) will prompt you to sign it.
+
+Note that all PRs will be squashed before merging, so there's no need to force-push to git to keep the history clean.
