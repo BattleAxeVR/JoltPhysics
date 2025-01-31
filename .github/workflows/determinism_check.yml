@@ -4,12 +4,13 @@ env:
   CONVEX_VS_MESH_HASH: '0x610d538e15420778'
   RAGDOLL_HASH: '0x275057ded572c916'
   PYRAMID_HASH: '0x198b8eeaee57e29a'
+  CHARACTER_VIRTUAL_HASH: '0x8fbe7347b302ac43'
   EMSCRIPTEN_VERSION: 3.1.73
-  UBUNTU_CLANG_VERSION: clang++-15
-  UBUNTU_GCC_VERSION: g++-12
-  UBUNTU_GCC_AARCH64_VERSION: aarch64-linux-gnu-g++-12
-  UBUNTU_GCC_RISCV_VERSION: riscv64-linux-gnu-g++-12
-  UBUNTU_GCC_POWERPC_VERSION: powerpc64le-linux-gnu-g++-12
+  UBUNTU_CLANG_VERSION: clang++-18
+  UBUNTU_GCC_VERSION: g++-14
+  UBUNTU_GCC_AARCH64_VERSION: aarch64-linux-gnu-g++-14
+  UBUNTU_GCC_RISCV_VERSION: riscv64-linux-gnu-g++-14
+  UBUNTU_GCC_POWERPC_VERSION: powerpc64le-linux-gnu-g++-14
   UBUNTU_GCC_LOONGARCH_VERSION: loongarch64-linux-gnu-g++-14
 
 on:
@@ -49,6 +50,9 @@ jobs:
     - name: Test Pyramid
       working-directory: ${{github.workspace}}/Build/Linux_Distribution
       run: ./PerformanceTest -q=LinearCast -t=max -s=Pyramid -validate_hash=${PYRAMID_HASH}
+    - name: Test CharacterVirtual
+      working-directory: ${{github.workspace}}/Build/Linux_Distribution
+      run: ./PerformanceTest -q=Discrete -t=max -s=CharacterVirtual -validate_hash=${CHARACTER_VIRTUAL_HASH}
 
   linux_gcc:
     runs-on: ubuntu-latest
@@ -74,6 +78,9 @@ jobs:
     - name: Test Pyramid
       working-directory: ${{github.workspace}}/Build/Linux_Distribution
       run: ./PerformanceTest -q=LinearCast -t=max -s=Pyramid -validate_hash=${PYRAMID_HASH}
+    - name: Test CharacterVirtual
+      working-directory: ${{github.workspace}}/Build/Linux_Distribution
+      run: ./PerformanceTest -q=Discrete -t=max -s=CharacterVirtual -validate_hash=${CHARACTER_VIRTUAL_HASH}
 
   msvc_cl:
     runs-on: windows-latest
@@ -101,6 +108,9 @@ jobs:
     - name: Test Pyramid
       working-directory: ${{github.workspace}}/Build/VS2022_CL/Distribution
       run: ./PerformanceTest -q=LinearCast -t=max -s=Pyramid "-validate_hash=$env:PYRAMID_HASH"
+    - name: Test CharacterVirtual
+      working-directory: ${{github.workspace}}/Build/VS2022_CL/Distribution
+      run: ./PerformanceTest -q=Discrete -t=max -s=CharacterVirtual "-validate_hash=$env:CHARACTER_VIRTUAL_HASH"
 
   msvc_cl_32:
     runs-on: windows-latest
@@ -128,6 +138,9 @@ jobs:
     - name: Test Pyramid
       working-directory: ${{github.workspace}}/Build/VS2022_CL_32BIT/Distribution
       run: ./PerformanceTest -q=LinearCast -t=max -s=Pyramid "-validate_hash=$env:PYRAMID_HASH"
+    - name: Test CharacterVirtual
+      working-directory: ${{github.workspace}}/Build/VS2022_CL_32BIT/Distribution
+      run: ./PerformanceTest -q=Discrete -t=max -s=CharacterVirtual "-validate_hash=$env:CHARACTER_VIRTUAL_HASH"
 
   macos:
     runs-on: macos-latest
@@ -153,6 +166,9 @@ jobs:
     - name: Test Pyramid
       working-directory: ${{github.workspace}}/Build/Linux_Distribution
       run: ./PerformanceTest -q=LinearCast -t=max -s=Pyramid -validate_hash=${PYRAMID_HASH}
+    - name: Test CharacterVirtual
+      working-directory: ${{github.workspace}}/Build/Linux_Distribution
+      run: ./PerformanceTest -q=Discrete -t=max -s=CharacterVirtual -validate_hash=${CHARACTER_VIRTUAL_HASH}
 
   arm_clang:
     runs-on: ubuntu-latest
@@ -163,7 +179,7 @@ jobs:
     - name: Update index
       run: sudo apt-get update
     - name: Install Cross Compiler
-      run: sudo apt-get install gcc-12-aarch64-linux-gnu gcc-12-multilib g++-12-multilib libstdc++-12-dev-arm64-cross qemu-user -y
+      run: sudo apt-get install gcc-14-aarch64-linux-gnu gcc-14-multilib g++-14-multilib libstdc++-14-dev-arm64-cross qemu-user -y
     - name: Configure CMake
       working-directory: ${{github.workspace}}/Build
       run: ./cmake_linux_clang_gcc.sh Distribution ${{env.UBUNTU_CLANG_VERSION}} -DCROSS_COMPILE_ARM=ON -DCROSS_PLATFORM_DETERMINISTIC=ON -DTARGET_VIEWER=OFF -DTARGET_SAMPLES=OFF -DTARGET_HELLO_WORLD=OFF -DTARGET_UNIT_TESTS=ON -DTARGET_PERFORMANCE_TEST=ON
@@ -181,6 +197,9 @@ jobs:
     - name: Test Pyramid
       working-directory: ${{github.workspace}}/Build/Linux_Distribution
       run: qemu-aarch64 -L /usr/aarch64-linux-gnu/ ./PerformanceTest -q=LinearCast -t=max -s=Pyramid -validate_hash=${PYRAMID_HASH}
+    - name: Test CharacterVirtual
+      working-directory: ${{github.workspace}}/Build/Linux_Distribution
+      run: qemu-aarch64 -L /usr/aarch64-linux-gnu/ ./PerformanceTest -q=Discrete -t=max -s=CharacterVirtual -validate_hash=${CHARACTER_VIRTUAL_HASH}
 
   arm_clang_32:
     runs-on: ubuntu-latest
@@ -191,7 +210,7 @@ jobs:
     - name: Update index
       run: sudo apt-get update
     - name: Install Cross Compiler
-      run: sudo apt-get install g++-12-arm-linux-gnueabihf qemu-user -y
+      run: sudo apt-get install g++-14-arm-linux-gnueabihf qemu-user -y
     - name: Configure CMake
       working-directory: ${{github.workspace}}/Build
       run: ./cmake_linux_clang_gcc.sh Distribution ${{env.UBUNTU_CLANG_VERSION}} -DCROSS_COMPILE_ARM=ON -DCROSS_COMPILE_ARM_TARGET="arm-linux-gnueabihf" -DCROSS_PLATFORM_DETERMINISTIC=ON -DTARGET_VIEWER=OFF -DTARGET_SAMPLES=OFF -DTARGET_HELLO_WORLD=OFF -DTARGET_UNIT_TESTS=ON -DTARGET_PERFORMANCE_TEST=ON
@@ -209,6 +228,9 @@ jobs:
     - name: Test Pyramid
       working-directory: ${{github.workspace}}/Build/Linux_Distribution
       run: qemu-arm -L /usr/arm-linux-gnueabihf/ ./PerformanceTest -q=LinearCast -t=max -s=Pyramid -validate_hash=${PYRAMID_HASH}
+    - name: Test CharacterVirtual
+      working-directory: ${{github.workspace}}/Build/Linux_Distribution
+      run: qemu-arm -L /usr/arm-linux-gnueabihf/ ./PerformanceTest -q=Discrete -t=max -s=CharacterVirtual -validate_hash=${CHARACTER_VIRTUAL_HASH}
 
   arm_gcc:
     runs-on: ubuntu-latest
@@ -219,7 +241,7 @@ jobs:
     - name: Update index
       run: sudo apt-get update
     - name: Install Cross Compiler
-      run: sudo apt-get install g++-12-aarch64-linux-gnu gcc-12-multilib g++-12-multilib libstdc++-12-dev-arm64-cross qemu-user -y
+      run: sudo apt-get install g++-14-aarch64-linux-gnu gcc-14-multilib g++-14-multilib libstdc++-14-dev-arm64-cross qemu-user -y
     - name: Configure CMake
       working-directory: ${{github.workspace}}/Build
       run: ./cmake_linux_clang_gcc.sh Distribution ${{env.UBUNTU_GCC_AARCH64_VERSION}} -DCROSS_COMPILE_ARM=ON -DCROSS_PLATFORM_DETERMINISTIC=ON -DTARGET_VIEWER=OFF -DTARGET_SAMPLES=OFF -DTARGET_HELLO_WORLD=OFF -DTARGET_UNIT_TESTS=ON -DTARGET_PERFORMANCE_TEST=ON
@@ -237,6 +259,9 @@ jobs:
     - name: Test Pyramid
       working-directory: ${{github.workspace}}/Build/Linux_Distribution
       run: qemu-aarch64 -L /usr/aarch64-linux-gnu/ ./PerformanceTest -q=LinearCast -t=max -s=Pyramid -validate_hash=${PYRAMID_HASH}
+    - name: Test CharacterVirtual
+      working-directory: ${{github.workspace}}/Build/Linux_Distribution
+      run: qemu-aarch64 -L /usr/aarch64-linux-gnu/ ./PerformanceTest -q=Discrete -t=max -s=CharacterVirtual -validate_hash=${CHARACTER_VIRTUAL_HASH}
 
   riscv_gcc:
     runs-on: ubuntu-latest
@@ -247,7 +272,7 @@ jobs:
     - name: Update index
       run: sudo apt-get update
     - name: Install Cross Compiler
-      run: sudo apt-get install g++-12-riscv64-linux-gnu gcc-12-multilib g++-12-multilib qemu-user -y
+      run: sudo apt-get install g++-14-riscv64-linux-gnu gcc-14-multilib g++-14-multilib qemu-user -y
     - name: Configure CMake
       working-directory: ${{github.workspace}}/Build
       run: ./cmake_linux_clang_gcc.sh Distribution ${{env.UBUNTU_GCC_RISCV_VERSION}} -DCROSS_COMPILE_ARM=ON -DCROSS_PLATFORM_DETERMINISTIC=ON -DCROSS_COMPILE_ARM_TARGET="" -DTARGET_VIEWER=OFF -DTARGET_SAMPLES=OFF -DTARGET_HELLO_WORLD=OFF -DTARGET_UNIT_TESTS=ON -DTARGET_PERFORMANCE_TEST=ON
@@ -265,6 +290,9 @@ jobs:
     - name: Test Pyramid
       working-directory: ${{github.workspace}}/Build/Linux_Distribution
       run: qemu-riscv64 -L /usr/riscv64-linux-gnu/ ./PerformanceTest -q=LinearCast -t=max -s=Pyramid -validate_hash=${PYRAMID_HASH}
+    - name: Test CharacterVirtual
+      working-directory: ${{github.workspace}}/Build/Linux_Distribution
+      run: qemu-riscv64 -L /usr/riscv64-linux-gnu/ ./PerformanceTest -q=Discrete -t=max -s=CharacterVirtual -validate_hash=${CHARACTER_VIRTUAL_HASH}
 
   powerpcle_gcc:
     runs-on: ubuntu-latest
@@ -275,7 +303,7 @@ jobs:
     - name: Update index
       run: sudo apt-get update
     - name: Install Cross Compiler
-      run: sudo apt-get install g++-12-powerpc64le-linux-gnu gcc-12-multilib g++-12-multilib qemu-user -y
+      run: sudo apt-get install g++-14-powerpc64le-linux-gnu gcc-14-multilib g++-14-multilib qemu-user -y
     - name: Configure CMake
       working-directory: ${{github.workspace}}/Build
       run: ./cmake_linux_clang_gcc.sh Distribution ${{env.UBUNTU_GCC_POWERPC_VERSION}} -DCROSS_COMPILE_ARM=ON -DCROSS_PLATFORM_DETERMINISTIC=ON -DCROSS_COMPILE_ARM_TARGET="" -DTARGET_VIEWER=OFF -DTARGET_SAMPLES=OFF -DTARGET_HELLO_WORLD=OFF -DTARGET_UNIT_TESTS=ON -DTARGET_PERFORMANCE_TEST=ON
@@ -296,7 +324,7 @@ jobs:
 #      run: qemu-ppc64le -L /usr/powerpc64le-linux-gnu/ ./PerformanceTest -q=LinearCast -t=max -s=Pyramid -validate_hash=${PYRAMID_HASH}
 
   loongarch_gcc:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     name: LoongArch GCC Determinism Check
     steps:
     - name: Checkout Code
@@ -304,7 +332,7 @@ jobs:
     - name: Update index
       run: sudo apt-get update
     - name: Install Cross Compiler
-      run: sudo apt-get install g++-14-loongarch64-linux-gnu gcc-12-multilib g++-12-multilib qemu-user -y
+      run: sudo apt-get install g++-14-loongarch64-linux-gnu gcc-14-multilib g++-14-multilib qemu-user -y
     - name: Configure CMake
       working-directory: ${{github.workspace}}/Build
       run: ./cmake_linux_clang_gcc.sh Distribution ${{env.UBUNTU_GCC_LOONGARCH_VERSION}} -DCROSS_COMPILE_ARM=ON -DCROSS_PLATFORM_DETERMINISTIC=ON -DCROSS_COMPILE_ARM_TARGET="" -DTARGET_VIEWER=OFF -DTARGET_SAMPLES=OFF -DTARGET_HELLO_WORLD=OFF -DTARGET_UNIT_TESTS=ON -DTARGET_PERFORMANCE_TEST=ON
@@ -358,3 +386,6 @@ jobs:
     - name: Test Pyramid
       working-directory: ${{github.workspace}}/Build/WASM_Distribution
       run: node PerformanceTest.js -q=LinearCast -t=max -s=Pyramid -validate_hash=${PYRAMID_HASH}
+    - name: Test CharacterVirtual
+      working-directory: ${{github.workspace}}/Build/WASM_Distribution
+      run: node PerformanceTest.js -q=Discrete -t=max -s=CharacterVirtual -validate_hash=${CHARACTER_VIRTUAL_HASH}

@@ -5,6 +5,7 @@
 #pragma once
 
 #include <Image/Surface.h>
+#include <Window/ApplicationWindow.h>
 #include <Renderer/Frustum.h>
 #include <Renderer/PipelineState.h>
 #include <Renderer/VertexShader.h>
@@ -12,7 +13,6 @@
 #include <Renderer/RenderPrimitive.h>
 #include <Renderer/RenderInstances.h>
 #include <memory>
-#include <functional>
 
 // Forward declares
 class Texture;
@@ -33,28 +33,10 @@ class Renderer
 {
 public:
 	/// Destructor
-	virtual							~Renderer() = default;
+	virtual							~Renderer();
 
-	/// Initialize DirectX
-	virtual void					Initialize();
-
-	/// Get window size
-	int								GetWindowWidth()					{ return mWindowWidth; }
-	int								GetWindowHeight()					{ return mWindowHeight; }
-
-#ifdef JPH_PLATFORM_WINDOWS
-	/// Access to the window handle
-	HWND							GetWindowHandle() const				{ return mhWnd; }
-#elif defined(JPH_PLATFORM_LINUX)
-	/// Access to the window handle
-	Display *						GetDisplay() const					{ return mDisplay; }
-	Window							GetWindow() const					{ return mWindow; }
-	using EventListener = std::function<void(const XEvent &)>;
-	void							SetEventListener(const EventListener &inListener) { mEventListener = inListener; }
-#endif // JPH_PLATFORM_WINDOWS
-
-	/// Update the system window, returns false if the application should quit
-	bool							WindowUpdate();
+	/// Initialize renderer
+	virtual void					Initialize(ApplicationWindow *inWindow);
 
 	/// Start / end drawing a frame
 	virtual void					BeginFrame(const CameraState &inCamera, float inWorldScale);
@@ -69,10 +51,10 @@ public:
 	virtual Ref<Texture>			CreateTexture(const Surface *inSurface) = 0;
 
 	/// Compile a vertex shader
-	virtual Ref<VertexShader>		CreateVertexShader(const char *inFileName) = 0;
+	virtual Ref<VertexShader>		CreateVertexShader(const char *inName) = 0;
 
 	/// Compile a pixel shader
-	virtual Ref<PixelShader>		CreatePixelShader(const char *inFileName) = 0;
+	virtual Ref<PixelShader>		CreatePixelShader(const char *inName) = 0;
 
 	/// Create pipeline state object that defines the complete state of how primitives should be rendered
 	virtual unique_ptr<PipelineState> CreatePipelineState(const VertexShader *inVertexShader, const PipelineState::EInputDescription *inInputDescription, uint inInputDescriptionCount, const PixelShader *inPixelShader, PipelineState::EDrawPass inDrawPass, PipelineState::EFillMode inFillMode, PipelineState::ETopology inTopology, PipelineState::EDepthTest inDepthTest, PipelineState::EBlendMode inBlendMode, PipelineState::ECullMode inCullMode) = 0;
@@ -106,8 +88,14 @@ public:
 	/// Which frame is currently rendering (to keep track of which buffers are free to overwrite)
 	uint							GetCurrentFrameIndex() const		{ JPH_ASSERT(mInFrame); return mFrameIndex; }
 
+	/// Get the window we're rendering to
+	ApplicationWindow *				GetWindow() const					{ return mWindow; }
+
 	/// Callback when the window resizes and the back buffer needs to be adjusted
-	virtual void					OnWindowResize();
+	virtual void					OnWindowResize() = 0;
+
+	/// Create a platform specific Renderer instance
+	static Renderer *				sCreate();
 
 protected:
 	struct VertexShaderConstantBuffer
@@ -124,16 +112,7 @@ protected:
 		Vec4						mLightPos;
 	};
 
-#ifdef JPH_PLATFORM_WINDOWS
-	HWND							mhWnd;
-#elif defined(JPH_PLATFORM_LINUX)
-	Display *						mDisplay;
-	Window							mWindow;
-	Atom							mWmDeleteWindow;
-	EventListener					mEventListener;
-#endif
-	int								mWindowWidth = 1920;
-	int								mWindowHeight = 1080;
+	ApplicationWindow *				mWindow = nullptr;					///< The window we're rendering to
 	float							mPerspectiveYSign = 1.0f;			///< Sign for the Y coordinate in the projection matrix (1 for DX, -1 for Vulkan)
 	bool							mInFrame = false;					///< If we're within a BeginFrame() / EndFrame() pair
 	CameraState						mCameraState;

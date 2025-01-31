@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20 FATAL_ERROR)
 
-project(JoltPhysics CXX)
+project(JoltPhysics VERSION 5.2.1 LANGUAGES CXX)
 
 # When turning this option on, the library will be compiled using assertions. By default asserts are enabled in Debug build.
 option(USE_ASSERTS "Enable asserts" OFF)
@@ -107,7 +107,7 @@ include(CMakeDependentOption)
 cmake_dependent_option(USE_STATIC_MSVC_RUNTIME_LIBRARY "Use the static MSVC runtime library" ON "MSVC;NOT WINDOWS_STORE" OFF)
 
 # Enable Vulkan instead of DirectX
-cmake_dependent_option(JPH_ENABLE_VULKAN "Enable Vulkan" OFF "WIN32" ON)
+cmake_dependent_option(JPH_ENABLE_VULKAN "Enable Vulkan" ON "LINUX" OFF)
 
 # Determine which configurations exist
 if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR) # Only do this when we're at the top level, see: https://gitlab.kitware.com/cmake/cmake/-/issues/24181
@@ -345,6 +345,10 @@ if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
 		target_include_directories(UnitTests PUBLIC ${UNIT_TESTS_ROOT})
 		target_link_libraries(UnitTests LINK_PUBLIC Jolt)
 
+		if (EMSCRIPTEN)
+			target_link_options(UnitTests PUBLIC -sSTACK_SIZE=1048576 -sINITIAL_MEMORY=134217728)
+		endif()
+
 		# Code coverage doesn't work when using precompiled headers
 		if (CMAKE_GENERATOR STREQUAL "Ninja Multi-Config" AND MSVC)
 			# The Ninja Multi-Config generator errors out when selectively disabling precompiled headers for certain configurations.
@@ -385,6 +389,9 @@ if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
 			if (MSVC)
 				target_link_options(HelloWorld PUBLIC "/SUBSYSTEM:CONSOLE")
 			endif()
+			if (EMSCRIPTEN)
+				target_link_options(HelloWorld PUBLIC -sSTACK_SIZE=1048576 -sINITIAL_MEMORY=134217728)
+			endif()
 		endif()
 
 		if (TARGET_PERFORMANCE_TEST)
@@ -401,12 +408,13 @@ if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
 				target_link_options(PerformanceTest PUBLIC "SHELL:--preload-file ${PHYSICS_REPO_ROOT}/Assets/Human.tof@/Assets/Human.tof")
 				target_link_options(PerformanceTest PUBLIC "SHELL:--preload-file ${PHYSICS_REPO_ROOT}/Assets/Human/dead_pose1.tof@/Assets/Human/dead_pose1.tof")
 				target_link_options(PerformanceTest PUBLIC "SHELL:--preload-file ${PHYSICS_REPO_ROOT}/Assets/terrain2.bof@/Assets/terrain2.bof")
+				target_link_options(PerformanceTest PUBLIC -sSTACK_SIZE=1048576 -sINITIAL_MEMORY=134217728)
 			endif()
 			set_property(TARGET PerformanceTest PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${PHYSICS_REPO_ROOT}")
 		endif()
 	endif()
 
-	if ((WIN32 OR LINUX) AND NOT ("${CMAKE_VS_PLATFORM_NAME}" STREQUAL "ARM")) # ARM 32-bit is missing dinput8.lib
+	if ((WIN32 OR LINUX OR ("${CMAKE_SYSTEM_NAME}" MATCHES "Darwin")) AND NOT ("${CMAKE_VS_PLATFORM_NAME}" STREQUAL "ARM")) # ARM 32-bit is missing dinput8.lib
 		# Windows only targets
 		if (TARGET_SAMPLES OR TARGET_VIEWER)
 			include(${PHYSICS_REPO_ROOT}/TestFramework/TestFramework.cmake)
@@ -425,12 +433,5 @@ if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
 				message("Cannot build JoltViewer because Vulkan/DirectX SDK is not available!")
 			endif()
 		endif()
-	endif()
-
-	# Copy the assets folder
-	if (TARGET_PERFORMANCE_TEST)
-		add_custom_command(TARGET PerformanceTest PRE_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory ${PHYSICS_REPO_ROOT}/Assets/ $<TARGET_FILE_DIR:PerformanceTest>/Assets/)
-	elseif (TEST_FRAMEWORK_AVAILABLE)
-		add_custom_command(TARGET TestFramework PRE_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory ${PHYSICS_REPO_ROOT}/Assets/ $<TARGET_FILE_DIR:TestFramework>/Assets/)
 	endif()
 endif()

@@ -25,8 +25,9 @@ UIManager::UIManager(Renderer *inRenderer) :
 	mManager = this;
 
 	// Set dimensions of the screen
-	SetWidth(mRenderer->GetWindowWidth());
-	SetHeight(mRenderer->GetWindowHeight());
+	ApplicationWindow *window = mRenderer->GetWindow();
+	SetWidth(window->GetWindowWidth());
+	SetHeight(window->GetWindowHeight());
 
 	// Create input layout
 	const PipelineState::EInputDescription vertex_desc[] =
@@ -37,11 +38,11 @@ UIManager::UIManager(Renderer *inRenderer) :
 	};
 
 	// Load vertex shader
-	Ref<VertexShader> vtx = mRenderer->CreateVertexShader("Assets/Shaders/UIVertexShader");
+	Ref<VertexShader> vtx = mRenderer->CreateVertexShader("UIVertexShader");
 
 	// Load pixel shader
-	Ref<PixelShader> pix_textured = mRenderer->CreatePixelShader("Assets/Shaders/UIPixelShader");
-	Ref<PixelShader> pix_untextured = mRenderer->CreatePixelShader("Assets/Shaders/UIPixelShaderUntextured");
+	Ref<PixelShader> pix_textured = mRenderer->CreatePixelShader("UIPixelShader");
+	Ref<PixelShader> pix_untextured = mRenderer->CreatePixelShader("UIPixelShaderUntextured");
 
 	mTextured = mRenderer->CreatePipelineState(vtx, vertex_desc, std::size(vertex_desc), pix_textured, PipelineState::EDrawPass::Normal, PipelineState::EFillMode::Solid, PipelineState::ETopology::Triangle, PipelineState::EDepthTest::Off, PipelineState::EBlendMode::AlphaBlend, PipelineState::ECullMode::Backface);
 	mUntextured = mRenderer->CreatePipelineState(vtx, vertex_desc, std::size(vertex_desc), pix_untextured, PipelineState::EDrawPass::Normal, PipelineState::EFillMode::Solid, PipelineState::ETopology::Triangle, PipelineState::EDepthTest::Off, PipelineState::EBlendMode::AlphaBlend, PipelineState::ECullMode::Backface);
@@ -153,14 +154,15 @@ void UIManager::GetMaxElementDistanceToScreenEdge(int &outMaxH, int &outMaxV)
 	outMaxH = 0;
 	outMaxV = 0;
 
+	ApplicationWindow *window = mRenderer->GetWindow();
 	for (const UIElement *e : mChildren)
 		if (e->HasDeactivateAnimation())
 		{
 			int dl = e->GetX() + e->GetWidth();
-			int dr = mRenderer->GetWindowWidth() - e->GetX();
+			int dr = window->GetWindowWidth() - e->GetX();
 			outMaxH = max(outMaxH, min(dl, dr));
 			int dt = e->GetY() + e->GetHeight();
-			int db = mRenderer->GetWindowHeight() - e->GetY();
+			int db = window->GetWindowHeight() - e->GetY();
 			outMaxV = max(outMaxV, min(dt, db));
 		}
 }

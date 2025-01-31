@@ -6,4 +6,5 @@
 /snapshot.bin
 /*.jor
 /detlog.txt
-/Assets/Shaders/*.spv
+/Assets/Shaders/VK/*.spv
+/Assets/Shaders/MTL/*.metallib

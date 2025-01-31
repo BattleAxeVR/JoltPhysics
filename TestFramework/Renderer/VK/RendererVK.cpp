@@ -20,8 +20,13 @@
 
 #ifdef JPH_PLATFORM_WINDOWS
 	#include <vulkan/vulkan_win32.h>
+	#include <Window/ApplicationWindowWin.h>
 #elif defined(JPH_PLATFORM_LINUX)
 	#include <vulkan/vulkan_xlib.h>
+	#include <Window/ApplicationWindowLinux.h>
+#elif defined(JPH_PLATFORM_MACOS)
+	#include <vulkan/vulkan_metal.h>
+	#include <Window/ApplicationWindowMacOS.h>
 #endif
 
 #ifdef JPH_DEBUG
@@ -39,6 +44,9 @@ RendererVK::~RendererVK()
 {
 	vkDeviceWaitIdle(mDevice);
 
+	// Trace allocation stats
+	Trace("VK: Max allocations: %u, max size: %u MB", mMaxNumAllocations, uint32(mMaxTotalAllocated >> 20));
+
 	// Destroy the shadow map
 	mShadowMap = nullptr;
 	vkDestroyFramebuffer(mDevice, mShadowFrameBuffer, nullptr);
@@ -50,16 +58,22 @@ RendererVK::~RendererVK()
 		cb = nullptr;
 	for (unique_ptr<ConstantBufferVK> &cb : mPixelShaderConstantBuffer)
 		cb = nullptr;
-
+	
 	// Free all buffers
 	for (BufferCache &bc : mFreedBuffers)
 		for (BufferCache::value_type &vt : bc)
 			for (BufferVK &bvk : vt.second)
-				bvk.Free(mDevice);
+				FreeBufferInternal(bvk);
 	for (BufferCache::value_type &vt : mBufferCache)
 		for (BufferVK &bvk : vt.second)
-			bvk.Free(mDevice);
+			FreeBufferInternal(bvk);
 
+	// Free all blocks in the memory cache
+	for (MemoryCache::value_type &mc : mMemoryCache)
+		for (Memory &m : mc.second)
+			if (m.mOffset == 0)
+				vkFreeMemory(mDevice, m.mMemory, nullptr); // Don't care about memory tracking anymore
+	
 	for (VkFence fence : mInFlightFences)
 		vkDestroyFence(mDevice, fence, nullptr);
 
@@ -98,9 +112,9 @@ RendererVK::~RendererVK()
 	 vkDestroyInstance(mInstance, nullptr);
 }
 
-void RendererVK::Initialize()
+void RendererVK::Initialize(ApplicationWindow *inWindow)
 {
-	Renderer::Initialize();
+	Renderer::Initialize(inWindow);
 
 	// Flip the sign of the projection matrix
 	mPerspectiveYSign = -1.0f;
@@ -112,11 +126,18 @@ void RendererVK::Initialize()
 	required_instance_extensions.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
 #elif defined(JPH_PLATFORM_LINUX)
 	required_instance_extensions.push_back(VK_KHR_XLIB_SURFACE_EXTENSION_NAME);
+#elif defined(JPH_PLATFORM_MACOS)
+	required_instance_extensions.push_back(VK_EXT_METAL_SURFACE_EXTENSION_NAME);
+	required_instance_extensions.push_back("VK_KHR_portability_enumeration");
+	required_instance_extensions.push_back("VK_KHR_get_physical_device_properties2");
 #endif
 
 	// Required device extensions
 	Array<const char *> required_device_extensions;
 	required_device_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+#ifdef JPH_PLATFORM_MACOS
+	required_device_extensions.push_back("VK_KHR_portability_subset"); // VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME
+#endif
 
 	// Query supported instance extensions
 	uint32 instance_extension_count = 0;
@@ -134,6 +155,9 @@ void RendererVK::Initialize()
 	// Create Vulkan instance
 	VkInstanceCreateInfo instance_create_info = {};
 	instance_create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+#ifdef JPH_PLATFORM_MACOS
+	instance_create_info.flags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+#endif
 
 #ifdef JPH_DEBUG
 	// Enable validation layer if supported
@@ -176,15 +200,21 @@ void RendererVK::Initialize()
 #ifdef JPH_PLATFORM_WINDOWS
 	VkWin32SurfaceCreateInfoKHR surface_create_info = {};
 	surface_create_info.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
-	surface_create_info.hwnd = mhWnd;
+	surface_create_info.hwnd = static_cast<ApplicationWindowWin *>(mWindow)->GetWindowHandle();
 	surface_create_info.hinstance = GetModuleHandle(nullptr);
 	FatalErrorIfFailed(vkCreateWin32SurfaceKHR(mInstance, &surface_create_info, nullptr, &mSurface));
 #elif defined(JPH_PLATFORM_LINUX)
 	VkXlibSurfaceCreateInfoKHR surface_create_info = {};
 	surface_create_info.sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR;
-	surface_create_info.dpy = mDisplay;
-	surface_create_info.window = mWindow;
+	surface_create_info.dpy = static_cast<ApplicationWindowLinux *>(mWindow)->GetDisplay();
+	surface_create_info.window = static_cast<ApplicationWindowLinux *>(mWindow)->GetWindow();
 	FatalErrorIfFailed(vkCreateXlibSurfaceKHR(mInstance, &surface_create_info, nullptr, &mSurface));
+#elif defined(JPH_PLATFORM_MACOS)
+	VkMetalSurfaceCreateInfoEXT surface_create_info = {};
+	surface_create_info.sType = VK_STRUCTURE_TYPE_METAL_SURFACE_CREATE_INFO_EXT;
+	surface_create_info.pNext = nullptr;
+	surface_create_info.pLayer = static_cast<ApplicationWindowMacOS *>(mWindow)->GetMetalLayer();
+	FatalErrorIfFailed(vkCreateMetalSurfaceEXT(mInstance, &surface_create_info, nullptr, &mSurface));
 #endif
 
 	// Select device
@@ -477,7 +507,6 @@ void RendererVK::Initialize()
 	sampler_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 	sampler_info.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
 	sampler_info.unnormalizedCoordinates = VK_FALSE;
-	sampler_info.compareEnable = VK_FALSE;
 	sampler_info.minLod = 0.0f;
 	sampler_info.maxLod = VK_LOD_CLAMP_NONE;
 	sampler_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
@@ -487,8 +516,6 @@ void RendererVK::Initialize()
 	sampler_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 	sampler_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 	sampler_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	sampler_info.compareEnable = VK_TRUE;
-	sampler_info.compareOp = VK_COMPARE_OP_GREATER_OR_EQUAL;
 	FatalErrorIfFailed(vkCreateSampler(mDevice, &sampler_info, nullptr, &mTextureSamplerShadow));
 
 	{
@@ -638,7 +665,7 @@ void RendererVK::CreateSwapChain(VkPhysicalDevice inDevice)
 	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(inDevice, mSurface, &capabilities);
 	mSwapChainExtent = capabilities.currentExtent;
 	if (mSwapChainExtent.width == UINT32_MAX || mSwapChainExtent.height == UINT32_MAX)
-		mSwapChainExtent = { uint32(mWindowWidth), uint32(mWindowHeight) };
+		mSwapChainExtent = { uint32(mWindow->GetWindowWidth()), uint32(mWindow->GetWindowHeight()) };
 	mSwapChainExtent.width = Clamp(mSwapChainExtent.width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
 	mSwapChainExtent.height = Clamp(mSwapChainExtent.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
 
@@ -735,8 +762,8 @@ void RendererVK::DestroySwapChain()
 	if (mDepthImageView != VK_NULL_HANDLE)
 	{
 		vkDestroyImageView(mDevice, mDepthImageView, nullptr);
-		vkDestroyImage(mDevice, mDepthImage, nullptr);
-		vkFreeMemory(mDevice, mDepthImageMemory, nullptr);
+
+		DestroyImage(mDepthImage, mDepthImageMemory);
 	}
 
 	for (VkFramebuffer frame_buffer : mSwapChainFramebuffers)
@@ -756,8 +783,6 @@ void RendererVK::DestroySwapChain()
 
 void RendererVK::OnWindowResize()
 {
-	Renderer::OnWindowResize();
-
 	vkDeviceWaitIdle(mDevice);
 	DestroySwapChain();
 	CreateSwapChain(mPhysicalDevice);
@@ -779,8 +804,8 @@ void RendererVK::BeginFrame(const CameraState &inCamera, float inWorldScale)
 	// Wait for this frame to complete
 	vkWaitForFences(mDevice, 1, &mInFlightFences[mFrameIndex], VK_TRUE, UINT64_MAX);
 
-	VkResult result = vkAcquireNextImageKHR(mDevice, mSwapChain, UINT64_MAX, mImageAvailableSemaphores[mFrameIndex], VK_NULL_HANDLE, &mImageIndex);
-	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
+	VkResult result = mSubOptimalSwapChain? VK_ERROR_OUT_OF_DATE_KHR : vkAcquireNextImageKHR(mDevice, mSwapChain, UINT64_MAX, mImageAvailableSemaphores[mFrameIndex], VK_NULL_HANDLE, &mImageIndex);
+	if (result == VK_ERROR_OUT_OF_DATE_KHR)
 	{
 		vkDeviceWaitIdle(mDevice);
 		DestroySwapChain();
@@ -788,13 +813,20 @@ void RendererVK::BeginFrame(const CameraState &inCamera, float inWorldScale)
 		if (mSwapChain == nullptr)
 			return;
 		result = vkAcquireNextImageKHR(mDevice, mSwapChain, UINT64_MAX, mImageAvailableSemaphores[mFrameIndex], VK_NULL_HANDLE, &mImageIndex);
+		mSubOptimalSwapChain = false;
+	}
+	else if (result == VK_SUBOPTIMAL_KHR)
+	{
+		// Render this frame with the suboptimal swap chain as we've already acquired an image
+		mSubOptimalSwapChain = true;
+		result = VK_SUCCESS;
 	}
 	FatalErrorIfFailed(result);
 
 	// Free buffers that weren't used this frame
 	for (BufferCache::value_type &vt : mBufferCache)
 		for (BufferVK &bvk : vt.second)
-			bvk.Free(mDevice);
+			FreeBufferInternal(bvk);
 	mBufferCache.clear();
 
 	// Recycle the buffers that were freed
@@ -933,9 +965,9 @@ Ref<Texture> RendererVK::CreateTexture(const Surface *inSurface)
 	return new TextureVK(this, inSurface);
 }
 
-Ref<VertexShader> RendererVK::CreateVertexShader(const char *inFileName)
+Ref<VertexShader> RendererVK::CreateVertexShader(const char *inName)
 {
-	Array<uint8> data = ReadData((String(inFileName) + ".vert.spv").c_str());
+	Array<uint8> data = ReadData((String("Shaders/VK/") + inName + ".vert.spv").c_str());
 
 	VkShaderModuleCreateInfo create_info = {};
 	create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -947,9 +979,9 @@ Ref<VertexShader> RendererVK::CreateVertexShader(const char *inFileName)
 	return new VertexShaderVK(mDevice, shader_module);
 }
 
-Ref<PixelShader> RendererVK::CreatePixelShader(const char *inFileName)
+Ref<PixelShader> RendererVK::CreatePixelShader(const char *inName)
 {
-	Array<uint8> data = ReadData((String(inFileName) + ".frag.spv").c_str());
+	Array<uint8> data = ReadData((String("Shaders/VK/") + inName + ".frag.spv").c_str());
 
 	VkShaderModuleCreateInfo create_info = {};
 	create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -986,6 +1018,32 @@ uint32 RendererVK::FindMemoryType(uint32 inTypeFilter, VkMemoryPropertyFlags inP
 	FatalError("Failed to find memory type!");
 }
 
+void RendererVK::AllocateMemory(VkDeviceSize inSize, uint32 inMemoryTypeBits, VkMemoryPropertyFlags inProperties, VkDeviceMemory &outMemory)
+{
+	VkMemoryAllocateInfo alloc_info = {};
+	alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	alloc_info.allocationSize = inSize;
+	alloc_info.memoryTypeIndex = FindMemoryType(inMemoryTypeBits, inProperties);
+	FatalErrorIfFailed(vkAllocateMemory(mDevice, &alloc_info, nullptr, &outMemory));
+
+	// Track allocation
+	++mNumAllocations;
+	mTotalAllocated += inSize;
+
+	// Track max usage
+	mMaxTotalAllocated = max(mMaxTotalAllocated, mTotalAllocated);
+	mMaxNumAllocations = max(mMaxNumAllocations, mNumAllocations);
+}
+
+void RendererVK::FreeMemory(VkDeviceMemory inMemory, VkDeviceSize inSize)
+{
+	vkFreeMemory(mDevice, inMemory, nullptr);
+
+	// Track free
+	--mNumAllocations;
+	mTotalAllocated -= inSize;
+}
+
 void RendererVK::CreateBuffer(VkDeviceSize inSize, VkBufferUsageFlags inUsage, VkMemoryPropertyFlags inProperties, BufferVK &outBuffer)
 {
 	// Check the cache
@@ -1012,14 +1070,40 @@ void RendererVK::CreateBuffer(VkDeviceSize inSize, VkBufferUsageFlags inUsage, V
 	VkMemoryRequirements mem_requirements;
 	vkGetBufferMemoryRequirements(mDevice, outBuffer.mBuffer, &mem_requirements);
 
-	VkMemoryAllocateInfo alloc_info = {};
-	alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-	alloc_info.allocationSize = mem_requirements.size;
-	alloc_info.memoryTypeIndex = FindMemoryType(mem_requirements.memoryTypeBits, inProperties);
+	if (mem_requirements.size > cMaxAllocSize)
+	{
+		// Allocate block directly
+		AllocateMemory(mem_requirements.size, mem_requirements.memoryTypeBits, inProperties, outBuffer.mMemory);
+		outBuffer.mAllocatedSize = mem_requirements.size;
+		outBuffer.mOffset = 0;
+	}
+	else
+	{
+		// Round allocation to the next power of 2 so that we can use a simple block based allocator
+		outBuffer.mAllocatedSize = max(VkDeviceSize(GetNextPowerOf2(uint32(mem_requirements.size))), cMinAllocSize);
 
-	FatalErrorIfFailed(vkAllocateMemory(mDevice, &alloc_info, nullptr, &outBuffer.mMemory));
+		// Ensure that we have memory available from the right pool
+		Array<Memory> &mem_array = mMemoryCache[{ outBuffer.mAllocatedSize, outBuffer.mUsage, outBuffer.mProperties }];
+		if (mem_array.empty())
+		{
+			// Allocate a bigger block
+			VkDeviceMemory device_memory;
+			AllocateMemory(cBlockSize, mem_requirements.memoryTypeBits, inProperties, device_memory);
 
-	vkBindBufferMemory(mDevice, outBuffer.mBuffer, outBuffer.mMemory, 0);
+			// Divide into sub blocks
+			for (VkDeviceSize offset = 0; offset < cBlockSize; offset += outBuffer.mAllocatedSize)
+				mem_array.push_back({ device_memory, offset });
+		}
+
+		// Claim memory from the pool
+		Memory &memory = mem_array.back();
+		outBuffer.mMemory = memory.mMemory;
+		outBuffer.mOffset = memory.mOffset;
+		mem_array.pop_back();
+	}
+
+	// Bind the memory to the buffer
+	vkBindBufferMemory(mDevice, outBuffer.mBuffer, outBuffer.mMemory, outBuffer.mOffset);
 }
 
 VkCommandBuffer RendererVK::StartTempCommandBuffer()
@@ -1073,7 +1157,7 @@ void RendererVK::CreateDeviceLocalBuffer(const void *inData, VkDeviceSize inSize
 	CreateBuffer(inSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, staging_buffer);
 
 	void *data;
-	vkMapMemory(mDevice, staging_buffer.mMemory, 0, inSize, 0, &data);
+	vkMapMemory(mDevice, staging_buffer.mMemory, staging_buffer.mOffset, inSize, 0, &data);
 	memcpy(data, inData, (size_t)inSize);
 	vkUnmapMemory(mDevice, staging_buffer.mMemory);
 
@@ -1091,6 +1175,19 @@ void RendererVK::FreeBuffer(BufferVK &ioBuffer)
 		JPH_ASSERT(mFrameIndex < cFrameCount);
 		mFreedBuffers[mFrameIndex][{ ioBuffer.mSize, ioBuffer.mUsage, ioBuffer.mProperties }].push_back(ioBuffer);
 	}
+}
+
+void RendererVK::FreeBufferInternal(BufferVK &ioBuffer)
+{
+	// Destroy the buffer
+	vkDestroyBuffer(mDevice, ioBuffer.mBuffer, nullptr);
+	ioBuffer.mBuffer = VK_NULL_HANDLE;
+
+	if (ioBuffer.mAllocatedSize > cMaxAllocSize)
+		FreeMemory(ioBuffer.mMemory, ioBuffer.mAllocatedSize);
+	else
+		mMemoryCache[{ ioBuffer.mAllocatedSize, ioBuffer.mUsage, ioBuffer.mProperties }].push_back({ ioBuffer.mMemory, ioBuffer.mOffset });
+	ioBuffer.mMemory = VK_NULL_HANDLE;
 }
 
 unique_ptr<ConstantBufferVK> RendererVK::CreateConstantBuffer(VkDeviceSize inBufferSize)
@@ -1136,13 +1233,19 @@ void RendererVK::CreateImage(uint32 inWidth, uint32 inHeight, VkFormat inFormat,
 	VkMemoryRequirements mem_requirements;
 	vkGetImageMemoryRequirements(mDevice, outImage, &mem_requirements);
 
-	VkMemoryAllocateInfo alloc_info = {};
-	alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-	alloc_info.allocationSize = mem_requirements.size;
-	alloc_info.memoryTypeIndex = FindMemoryType(mem_requirements.memoryTypeBits, inProperties);
-	FatalErrorIfFailed(vkAllocateMemory(mDevice, &alloc_info, nullptr, &outMemory));
+	AllocateMemory(mem_requirements.size, mem_requirements.memoryTypeBits, inProperties, outMemory);
 
 	vkBindImageMemory(mDevice, outImage, outMemory, 0);
+}
+
+void RendererVK::DestroyImage(VkImage inImage, VkDeviceMemory inMemory)
+{
+	VkMemoryRequirements mem_requirements;
+	vkGetImageMemoryRequirements(mDevice, inImage, &mem_requirements);
+
+	vkDestroyImage(mDevice, inImage, nullptr);
+
+	FreeMemory(inMemory, mem_requirements.size);
 }
 
 void RendererVK::UpdateViewPortAndScissorRect(uint32 inWidth, uint32 inHeight)
@@ -1164,3 +1267,10 @@ void RendererVK::UpdateViewPortAndScissorRect(uint32 inWidth, uint32 inHeight)
 	scissor.extent = { inWidth, inHeight };
 	vkCmdSetScissor(command_buffer, 0, 1, &scissor);
 }
+
+#ifdef JPH_ENABLE_VULKAN
+Renderer *Renderer::sCreate()
+{
+	return new RendererVK;
+}
+#endif
