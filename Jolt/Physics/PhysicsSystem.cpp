@@ -77,13 +77,15 @@ PhysicsSystem::~PhysicsSystem()
 
 void PhysicsSystem::Init(uint inMaxBodies, uint inNumBodyMutexes, uint inMaxBodyPairs, uint inMaxContactConstraints, const BroadPhaseLayerInterface &inBroadPhaseLayerInterface, const ObjectVsBroadPhaseLayerFilter &inObjectVsBroadPhaseLayerFilter, const ObjectLayerPairFilter &inObjectLayerPairFilter)
 {
-	JPH_ASSERT(inMaxBodies <= BodyID::cMaxBodyIndex + 1, "Cannot support this many bodies");
+	// Clamp max bodies
+	uint max_bodies = min(inMaxBodies, cMaxBodiesLimit);
+	JPH_ASSERT(max_bodies == inMaxBodies, "Cannot support this many bodies!");
 
 	mObjectVsBroadPhaseLayerFilter = &inObjectVsBroadPhaseLayerFilter;
 	mObjectLayerPairFilter = &inObjectLayerPairFilter;
 
 	// Initialize body manager
-	mBodyManager.Init(inMaxBodies, inNumBodyMutexes, inBroadPhaseLayerInterface);
+	mBodyManager.Init(max_bodies, inNumBodyMutexes, inBroadPhaseLayerInterface);
 
 	// Create broadphase
 	mBroadPhase = new BROAD_PHASE();
@@ -93,7 +95,7 @@ void PhysicsSystem::Init(uint inMaxBodies, uint inNumBodyMutexes, uint inMaxBody
 	mContactManager.Init(inMaxBodyPairs, inMaxContactConstraints);
 
 	// Init islands builder
-	mIslandBuilder.Init(inMaxBodies);
+	mIslandBuilder.Init(max_bodies);
 
 	// Initialize body interface
 	mBodyInterfaceLocking.Init(mBodyLockInterfaceLocking, mBodyManager, *mBroadPhase);
@@ -844,6 +846,9 @@ void PhysicsSystem::JobFindCollisions(PhysicsUpdateContext::Step *ioStep, int in
 	// (always start looking at results from the next job)
 	int read_queue_idx = (inJobIndex + 1) % ioStep->mBodyPairQueues.size();
 
+	// Allocate space to temporarily store a batch of active bodies
+	BodyID *active_bodies = (BodyID *)JPH_STACK_ALLOC(cActiveBodiesBatchSize * sizeof(BodyID));
+
 	for (;;)
 	{
 		// Check if there are active bodies to be processed
@@ -895,7 +900,6 @@ void PhysicsSystem::JobFindCollisions(PhysicsUpdateContext::Step *ioStep, int in
 
 				// Copy active bodies to temporary array, broadphase will reorder them
 				uint32 batch_size = active_bodies_read_idx_end - active_bodies_read_idx;
-				BodyID *active_bodies = (BodyID *)JPH_STACK_ALLOC(batch_size * sizeof(BodyID));
 				memcpy(active_bodies, mBodyManager.GetActiveBodiesUnsafe(EBodyType::RigidBody) + active_bodies_read_idx, batch_size * sizeof(BodyID));
 
 				// Find pairs in the broadphase
@@ -960,6 +964,23 @@ void PhysicsSystem::JobFindCollisions(PhysicsUpdateContext::Step *ioStep, int in
 	}
 }
 
+void PhysicsSystem::sDefaultSimCollideBodyVsBody(const Body &inBody1, const Body &inBody2, Mat44Arg inCenterOfMassTransform1, Mat44Arg inCenterOfMassTransform2, CollideShapeSettings &ioCollideShapeSettings, CollideShapeCollector &ioCollector, const ShapeFilter &inShapeFilter)
+{
+	SubShapeIDCreator part1, part2;
+
+	if (inBody1.GetEnhancedInternalEdgeRemovalWithBody(inBody2))
+	{
+		// Collide with enhanced internal edge removal
+		ioCollideShapeSettings.mActiveEdgeMode = EActiveEdgeMode::CollideWithAll;
+		InternalEdgeRemovingCollector::sCollideShapeVsShape(inBody1.GetShape(), inBody2.GetShape(), Vec3::sOne(), Vec3::sOne(), inCenterOfMassTransform1, inCenterOfMassTransform2, part1, part2, ioCollideShapeSettings, ioCollector, inShapeFilter);
+	}
+	else
+	{
+		// Regular collide
+		CollisionDispatch::sCollideShapeVsShape(inBody1.GetShape(), inBody2.GetShape(), Vec3::sOne(), Vec3::sOne(), inCenterOfMassTransform1, inCenterOfMassTransform2, part1, part2, ioCollideShapeSettings, ioCollector, inShapeFilter);
+	}
+}
+
 void PhysicsSystem::ProcessBodyPair(ContactAllocator &ioContactAllocator, const BodyPair &inBodyPair)
 {
 	JPH_PROFILE_FUNCTION();
@@ -1003,13 +1024,10 @@ void PhysicsSystem::ProcessBodyPair(ContactAllocator &ioContactAllocator, const 
 		if (body_pair_handle == nullptr)
 			return; // Out of cache space
 
-		// If we want enhanced active edge detection for this body pair
-		bool enhanced_active_edges = body1->GetEnhancedInternalEdgeRemovalWithBody(*body2);
-
 		// Create the query settings
 		CollideShapeSettings settings;
 		settings.mCollectFacesMode = ECollectFacesMode::CollectFaces;
-		settings.mActiveEdgeMode = mPhysicsSettings.mCheckActiveEdges && !enhanced_active_edges? EActiveEdgeMode::CollideOnlyWithActive : EActiveEdgeMode::CollideWithAll;
+		settings.mActiveEdgeMode = mPhysicsSettings.mCheckActiveEdges? EActiveEdgeMode::CollideOnlyWithActive : EActiveEdgeMode::CollideWithAll;
 		settings.mMaxSeparationDistance = body1->IsSensor() || body2->IsSensor()? 0.0f : mPhysicsSettings.mSpeculativeContactDistance;
 		settings.mActiveEdgeMovementDirection = body1->GetLinearVelocity() - body2->GetLinearVelocity();
 
@@ -1137,9 +1155,7 @@ void PhysicsSystem::ProcessBodyPair(ContactAllocator &ioContactAllocator, const 
 			ReductionCollideShapeCollector collector(this, body1, body2);
 
 			// Perform collision detection between the two shapes
-			SubShapeIDCreator part1, part2;
-			auto f = enhanced_active_edges? InternalEdgeRemovingCollector::sCollideShapeVsShape : CollisionDispatch::sCollideShapeVsShape;
-			f(body1->GetShape(), body2->GetShape(), Vec3::sOne(), Vec3::sOne(), transform1, transform2, part1, part2, settings, collector, shape_filter);
+			mSimCollideBodyVsBody(*body1, *body2, transform1, transform2, settings, collector, shape_filter);
 
 			// Add the contacts
 			for (ContactManifold &manifold : collector.mManifolds)
@@ -1238,9 +1254,7 @@ void PhysicsSystem::ProcessBodyPair(ContactAllocator &ioContactAllocator, const 
 			NonReductionCollideShapeCollector collector(this, ioContactAllocator, body1, body2, body_pair_handle);
 
 			// Perform collision detection between the two shapes
-			SubShapeIDCreator part1, part2;
-			auto f = enhanced_active_edges? InternalEdgeRemovingCollector::sCollideShapeVsShape : CollisionDispatch::sCollideShapeVsShape;
-			f(body1->GetShape(), body2->GetShape(), Vec3::sOne(), Vec3::sOne(), transform1, transform2, part1, part2, settings, collector, shape_filter);
+			mSimCollideBodyVsBody(*body1, *body2, transform1, transform2, settings, collector, shape_filter);
 
 			constraint_created = collector.mConstraintCreated;
 		}

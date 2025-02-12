@@ -14,6 +14,18 @@ public:
 	// Get name of test for debug purposes
 	virtual const char *	GetName() const = 0;
 
+	// Get the number of MB that the temp allocator should preallocate
+	virtual size_t			GetTempAllocatorSizeMB() const						{ return 32; }
+
+	// Get the max number of bodies to support in the physics system
+	virtual uint			GetMaxBodies() const								{ return 10240; }
+
+	// Get the max number of body pairs to support in the physics system
+	virtual uint			GetMaxBodyPairs() const								{ return 65536; }
+
+	// Get the max number of contact constraints to support in the physics system
+	virtual uint			GetMaxContactConstraints() const					{ return 20480; }
+
 	// Load assets for the scene
 	virtual bool			Load([[maybe_unused]] const String &inAssetPath)	{ return true; }
 

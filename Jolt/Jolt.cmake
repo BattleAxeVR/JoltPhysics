@@ -209,6 +209,7 @@ set(JOLT_PHYSICS_SRC_FILES
 	${JOLT_PHYSICS_ROOT}/Physics/Collision/CollideConvexVsTriangles.h
 	${JOLT_PHYSICS_ROOT}/Physics/Collision/CollidePointResult.h
 	${JOLT_PHYSICS_ROOT}/Physics/Collision/CollideShape.h
+	${JOLT_PHYSICS_ROOT}/Physics/Collision/CollideShapeVsShapePerLeaf.h
 	${JOLT_PHYSICS_ROOT}/Physics/Collision/CollideSoftBodyVertexIterator.h
 	${JOLT_PHYSICS_ROOT}/Physics/Collision/CollideSoftBodyVerticesVsTriangles.h
 	${JOLT_PHYSICS_ROOT}/Physics/Collision/CollideSphereVsTriangles.cpp
@@ -639,6 +640,10 @@ else()
 			# See: https://emscripten.org/docs/porting/simd.html#webassembly-simd-intrinsics
 			# Note that this does not require the browser to actually support SSE 4.2 it merely means that it can translate those instructions to WASM SIMD instructions
 			target_compile_options(Jolt PUBLIC -msimd128 -msse4.2)
+		endif()
+		if (JPH_USE_WASM64)
+			target_compile_options(Jolt PUBLIC -sMEMORY64)
+			target_link_options(Jolt PUBLIC -sMEMORY64)
 		endif()
 	elseif ("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86_64" OR "${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "AMD64" OR "${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86" OR "${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "i386")
 		# x86 and x86_64
