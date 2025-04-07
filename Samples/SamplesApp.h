@@ -118,12 +118,12 @@ private:
 	const RTTI *			mTestClass = nullptr;										// RTTI information for the test we're currently running
 	Test *					mTest = nullptr;											// The test we're currently running
 	UITextButton *			mTestSettingsButton = nullptr;								// Button that activates the menu that the test uses to configure additional settings
+	int						mShowDescription = 0;										// If > 0, render the description of the test
 
 	// Automatic cycling through tests
-	Array<const RTTI *>		mTestsToRun;												// The list of tests that are still waiting to be run
+	bool					mIsRunningAllTests = false;									// If the user selected the 'Run All Tests' option
 	float					mTestTimeLeft = -1.0f;										// How many seconds the test is still supposed to run
 	bool					mExitAfterRunningTests = false;								// When true, the application will quit when mTestsToRun becomes empty
-	UITextButton *			mNextTestButton = nullptr;									// Button that activates the next test when we're running all tests
 
 	// Test settings
 	bool					mInstallContactListener = false;							// When true, the contact listener is installed the next time the test is reset
