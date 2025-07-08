@@ -140,6 +140,9 @@ TEST_SUITE("Vec4Tests")
 
 		CHECK(Vec4(1.001f, 0, 0, 0).IsNormalized(1.0e-2f));
 		CHECK(!Vec4(0, 1.001f, 0, 0).IsNormalized(1.0e-4f));
+
+		CHECK(Vec4(-1.0e-7f, 1.0e-7f, 1.0e-8f, -1.0e-8f).IsNearZero());
+		CHECK(!Vec4(-1.0e-7f, 1.0e-7f, -1.0e-5f, 1.0e-5f).IsNearZero());
 	}
 
 	TEST_CASE("TestVec4Operators")
@@ -189,6 +192,11 @@ TEST_SUITE("Vec4Tests")
 		CHECK(v.SplatY() == Vec4::sReplicate(2));
 		CHECK(v.SplatZ() == Vec4::sReplicate(3));
 		CHECK(v.SplatW() == Vec4::sReplicate(4));
+
+		CHECK(v.SplatX3() == Vec3::sReplicate(1));
+		CHECK(v.SplatY3() == Vec3::sReplicate(2));
+		CHECK(v.SplatZ3() == Vec3::sReplicate(3));
+		CHECK(v.SplatW3() == Vec3::sReplicate(4));
 
 		CHECK(v.Swizzle<SWIZZLE_X, SWIZZLE_X, SWIZZLE_X, SWIZZLE_X>() == Vec4(1, 1, 1, 1));
 		CHECK(v.Swizzle<SWIZZLE_X, SWIZZLE_X, SWIZZLE_X, SWIZZLE_Y>() == Vec4(1, 1, 1, 2));
@@ -490,6 +498,15 @@ TEST_SUITE("Vec4Tests")
 	{
 		CHECK(Vec4(1.2345f, -6.7891f, 0, 1).GetSign() == Vec4(1, -1, 1, 1));
 		CHECK(Vec4(0, 2.3456f, -7.8912f, -1).GetSign() == Vec4(1, 1, -1, -1));
+	}
+
+	TEST_CASE("TestVec4FlipSign")
+	{
+		Vec4 v(1, 2, 3, 4);
+		CHECK(v.FlipSign<-1, 1, 1, 1>() == Vec4(-1, 2, 3, 4));
+		CHECK(v.FlipSign<1, -1, 1, 1>() == Vec4(1, -2, 3, 4));
+		CHECK(v.FlipSign<1, 1, -1, 1>() == Vec4(1, 2, -3, 4));
+		CHECK(v.FlipSign<1, 1, 1, -1>() == Vec4(1, 2, 3, -4));
 	}
 
 	TEST_CASE("TestVec4SignBit")
