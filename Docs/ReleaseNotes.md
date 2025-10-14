@@ -6,6 +6,19 @@ For breaking API changes see [this document](https://github.com/jrouwe/JoltPhysi
 
 ### New functionality
 
+* Added new define `JPH_TRACK_SIMULATION_STATS` which tracks simulation statistics on a per body basis. This can be used to figure out bodies are the most expensive to simulate.
+* Added `RagdollSettings::CalculateConstraintPriorities` which calculates constraint priorities that boost the priority of joints towards the root of the ragdoll.
+
+### Bug Fixes
+
+* A 6DOF constraint that constrains all rotation axis in combination with a body that has some of its rotation axis locked would not constrain the rotation in the unlocked axis.
+* Added include `type_traits` for `std::is_trivial` to avoid compile error on macOS with clang 21.
+* Fixed compilation error when using Jolt in conjunction with the `_CRTDBG_MAP_ALLOC` define on Windows.
+
+## v5.4.0
+
+### New functionality
+
 * Added Cosserat rods to soft bodies. This is a stick constraint with an orientation that can be used to attach geometry. Can be used e.g. to simulate vegetation in a cheap way. See the new `SoftBodyCosseratRodConstraintTest` demo.
 * Added ability to drive hinge constraints with `Ragdoll::DriveToPoseUsingMotors`. This also adds `HingeConstraint::SetTargetOrientationBS` which sets the target angle in body space.
 * Added `JPH_USE_EXTERNAL_PROFILE` cmake option that allows overriding the behavior of the profile macros.
@@ -16,8 +29,10 @@ For breaking API changes see [this document](https://github.com/jrouwe/JoltPhysi
 
 ### Bug Fixes
 
+* Fixed bug in `ManifoldBetweenTwoFaces` which would not find the correct manifold in case face 1 had 3 or more vertices and face 2 only 2. E.g. for a box resting the long edge of a cylinder this would mean that only a single contact point was found instead of 2 (the other way around would work fine).
 * Fixed bug in `ConvexHullShape::CollideSoftBodyVertices` where the wrong edge could be reported as the closest edge.
 * Fixed bug in `PhysicsSystem::OptimizeBroadPhase`. When calling this function after removing all bodies from the `PhysicsSystem`, the internal nodes would not be freed until bodies are added again. This could lead to running out of internal nodes in rare cases.
+* Fixed bug in `MeshShape` active edge calculation which could mark edges of non-manifold meshes as inactive instead of active.
 * Fixed passing underestimate of penetration depth in `ContactListener::OnContactPersisted` when the contact comes from the contact cache.
 * `QuadTree` will now fall back to the heap when running out of stack space during collision queries. Previously this would trigger an assert and some collisions would not be detected.
 * Fixed `BodyInterface::MoveKinematic`, `SetLinearVelocity`, `SetAngularVelocity`, `SetLinearAndAngularVelocity`, `AddLinearVelocity`, `AddLinearAndAngularVelocity`, `SetPositionRotationAndVelocity` and `SetMotionType` when body not added to the physics system yet.
