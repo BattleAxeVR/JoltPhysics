@@ -9,6 +9,7 @@ JPH_NAMESPACE_BEGIN
 #ifndef JPH_DISABLE_CUSTOM_ALLOCATOR
 
 /// Normal memory allocation, must be at least 8 byte aligned on 32 bit platform and 16 byte aligned on 64 bit platform.
+/// Note that you can override JPH_DEFAULT_ALLOCATE_ALIGNMENT if your allocator's alignment is different from the alignment as defined by `__STDCPP_DEFAULT_NEW_ALIGNMENT__`.
 using AllocateFunction = void *(*)(size_t inSize);
 
 /// Reallocate memory. inBlock can be nullptr in which case it must behave as a memory allocation.
@@ -37,7 +38,7 @@ JPH_EXPORT void RegisterDefaultAllocator();
 // It uses the non-aligned version, which on 32 bit platforms usually returns an 8 byte aligned block.
 // We therefore default to 16 byte aligned allocations when the regular new operator is used.
 // See: https://github.com/godotengine/godot/issues/105455#issuecomment-2824311547
-#if defined(JPH_COMPILER_MINGW) && JPH_CPU_ADDRESS_BITS == 32
+#if defined(JPH_COMPILER_MINGW) && JPH_CPU_ARCH_BITS == 32
 	#define JPH_INTERNAL_DEFAULT_ALLOCATE(size) JPH::AlignedAllocate(size, 16)
 	#define JPH_INTERNAL_DEFAULT_FREE(pointer) JPH::AlignedFree(pointer)
 #else
