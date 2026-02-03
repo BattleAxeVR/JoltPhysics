@@ -16,6 +16,7 @@ set(JOLT_PHYSICS_SRC_FILES
 	${JOLT_PHYSICS_ROOT}/ConfigurationString.h
 	${JOLT_PHYSICS_ROOT}/Compute/ComputeBuffer.h
 	${JOLT_PHYSICS_ROOT}/Compute/ComputeQueue.h
+	${JOLT_PHYSICS_ROOT}/Compute/ComputeSystem.cpp
 	${JOLT_PHYSICS_ROOT}/Compute/ComputeSystem.h
 	${JOLT_PHYSICS_ROOT}/Compute/ComputeShader.h
 	${JOLT_PHYSICS_ROOT}/Core/ARMNeon.h
@@ -56,6 +57,7 @@ set(JOLT_PHYSICS_SRC_FILES
 	${JOLT_PHYSICS_ROOT}/Core/Mutex.h
 	${JOLT_PHYSICS_ROOT}/Core/MutexArray.h
 	${JOLT_PHYSICS_ROOT}/Core/NonCopyable.h
+	${JOLT_PHYSICS_ROOT}/Core/ObjectToIDMap.h
 	${JOLT_PHYSICS_ROOT}/Core/Profiler.cpp
 	${JOLT_PHYSICS_ROOT}/Core/Profiler.h
 	${JOLT_PHYSICS_ROOT}/Core/Profiler.inl
@@ -83,7 +85,9 @@ set(JOLT_PHYSICS_SRC_FILES
 	${JOLT_PHYSICS_ROOT}/Core/TickCounter.cpp
 	${JOLT_PHYSICS_ROOT}/Core/TickCounter.h
 	${JOLT_PHYSICS_ROOT}/Core/UnorderedMap.h
+	${JOLT_PHYSICS_ROOT}/Core/UnorderedMapFwd.h
 	${JOLT_PHYSICS_ROOT}/Core/UnorderedSet.h
+	${JOLT_PHYSICS_ROOT}/Core/UnorderedSetFwd.h
 	${JOLT_PHYSICS_ROOT}/Geometry/AABox.h
 	${JOLT_PHYSICS_ROOT}/Geometry/AABox4.h
 	${JOLT_PHYSICS_ROOT}/Geometry/ClipPoly.h
@@ -360,6 +364,12 @@ set(JOLT_PHYSICS_SRC_FILES
 	${JOLT_PHYSICS_ROOT}/Physics/DeterminismLog.h
 	${JOLT_PHYSICS_ROOT}/Physics/EActivation.h
 	${JOLT_PHYSICS_ROOT}/Physics/EPhysicsUpdateError.h
+	${JOLT_PHYSICS_ROOT}/Physics/Hair/Hair.cpp
+	${JOLT_PHYSICS_ROOT}/Physics/Hair/Hair.h
+	${JOLT_PHYSICS_ROOT}/Physics/Hair/HairSettings.cpp
+	${JOLT_PHYSICS_ROOT}/Physics/Hair/HairSettings.h
+	${JOLT_PHYSICS_ROOT}/Physics/Hair/HairShaders.cpp
+	${JOLT_PHYSICS_ROOT}/Physics/Hair/HairShaders.h
 	${JOLT_PHYSICS_ROOT}/Physics/IslandBuilder.cpp
 	${JOLT_PHYSICS_ROOT}/Physics/IslandBuilder.h
 	${JOLT_PHYSICS_ROOT}/Physics/LargeIslandSplitter.cpp
@@ -462,21 +472,80 @@ if (ENABLE_OBJECT_STREAM)
 	)
 endif()
 
-if (JPH_USE_DX12 OR JPH_USE_VK OR JPH_USE_MTL)
+if (JPH_USE_DX12 OR JPH_USE_VK OR JPH_USE_MTL OR JPH_USE_CPU_COMPUTE)
 	# Compute shaders
 	set(JOLT_PHYSICS_SHADERS
+		${JOLT_PHYSICS_ROOT}/Shaders/HairApplyDeltaTransform.hlsl
+		${JOLT_PHYSICS_ROOT}/Shaders/HairApplyGlobalPose.hlsl
+		${JOLT_PHYSICS_ROOT}/Shaders/HairCalculateCollisionPlanes.hlsl
+		${JOLT_PHYSICS_ROOT}/Shaders/HairCalculateRenderPositions.hlsl
+		${JOLT_PHYSICS_ROOT}/Shaders/HairGridAccumulate.hlsl
+		${JOLT_PHYSICS_ROOT}/Shaders/HairGridClear.hlsl
+		${JOLT_PHYSICS_ROOT}/Shaders/HairGridNormalize.hlsl
+		${JOLT_PHYSICS_ROOT}/Shaders/HairIntegrate.hlsl
+		${JOLT_PHYSICS_ROOT}/Shaders/HairSkinRoots.hlsl
+		${JOLT_PHYSICS_ROOT}/Shaders/HairSkinVertices.hlsl
+		${JOLT_PHYSICS_ROOT}/Shaders/HairTeleport.hlsl
+		${JOLT_PHYSICS_ROOT}/Shaders/HairUpdateRoots.hlsl
+		${JOLT_PHYSICS_ROOT}/Shaders/HairUpdateStrands.hlsl
+		${JOLT_PHYSICS_ROOT}/Shaders/HairUpdateVelocity.hlsl
+		${JOLT_PHYSICS_ROOT}/Shaders/HairUpdateVelocityIntegrate.hlsl
 		${JOLT_PHYSICS_ROOT}/Shaders/TestCompute.hlsl
+		${JOLT_PHYSICS_ROOT}/Shaders/TestCompute2.hlsl
 	)
 
 	set(JOLT_PHYSICS_SHADER_HEADERS
+		${JOLT_PHYSICS_ROOT}/Shaders/HairApplyDeltaTransformBindings.h
+		${JOLT_PHYSICS_ROOT}/Shaders/HairApplyGlobalPose.h
+		${JOLT_PHYSICS_ROOT}/Shaders/HairApplyGlobalPoseBindings.h
+		${JOLT_PHYSICS_ROOT}/Shaders/HairCalculateCollisionPlanesBindings.h
+		${JOLT_PHYSICS_ROOT}/Shaders/HairCalculateRenderPositions.h
+		${JOLT_PHYSICS_ROOT}/Shaders/HairCalculateRenderPositionsBindings.h
+		${JOLT_PHYSICS_ROOT}/Shaders/HairCommon.h
+		${JOLT_PHYSICS_ROOT}/Shaders/HairGridAccumulateBindings.h
+		${JOLT_PHYSICS_ROOT}/Shaders/HairGridClearBindings.h
+		${JOLT_PHYSICS_ROOT}/Shaders/HairGridNormalizeBindings.h
+		${JOLT_PHYSICS_ROOT}/Shaders/HairIntegrate.h
+		${JOLT_PHYSICS_ROOT}/Shaders/HairIntegrateBindings.h
+		${JOLT_PHYSICS_ROOT}/Shaders/HairSkinRootsBindings.h
+		${JOLT_PHYSICS_ROOT}/Shaders/HairSkinVerticesBindings.h
+		${JOLT_PHYSICS_ROOT}/Shaders/HairStructs.h
+		${JOLT_PHYSICS_ROOT}/Shaders/HairTeleportBindings.h
+		${JOLT_PHYSICS_ROOT}/Shaders/HairUpdateRootsBindings.h
+		${JOLT_PHYSICS_ROOT}/Shaders/HairUpdateStrandsBindings.h
+		${JOLT_PHYSICS_ROOT}/Shaders/HairUpdateVelocity.h
+		${JOLT_PHYSICS_ROOT}/Shaders/HairUpdateVelocityBindings.h
+		${JOLT_PHYSICS_ROOT}/Shaders/HairUpdateVelocityIntegrateBindings.h
 		${JOLT_PHYSICS_ROOT}/Shaders/ShaderCore.h
 		${JOLT_PHYSICS_ROOT}/Shaders/ShaderMat44.h
 		${JOLT_PHYSICS_ROOT}/Shaders/ShaderMath.h
 		${JOLT_PHYSICS_ROOT}/Shaders/ShaderPlane.h
 		${JOLT_PHYSICS_ROOT}/Shaders/ShaderQuat.h
 		${JOLT_PHYSICS_ROOT}/Shaders/ShaderVec3.h
-		${JOLT_PHYSICS_ROOT}/Shaders/TestCompute.h
 		${JOLT_PHYSICS_ROOT}/Shaders/TestComputeBindings.h
+		${JOLT_PHYSICS_ROOT}/Shaders/TestCompute2Bindings.h
+	)
+endif()
+
+# CPU compute support
+if (JPH_USE_CPU_COMPUTE)
+	set(JOLT_PHYSICS_SRC_FILES
+		${JOLT_PHYSICS_SRC_FILES}
+		${JOLT_PHYSICS_ROOT}/Compute/CPU/ComputeQueueCPU.cpp
+		${JOLT_PHYSICS_ROOT}/Compute/CPU/ComputeQueueCPU.h
+		${JOLT_PHYSICS_ROOT}/Compute/CPU/ComputeBufferCPU.cpp
+		${JOLT_PHYSICS_ROOT}/Compute/CPU/ComputeBufferCPU.h
+		${JOLT_PHYSICS_ROOT}/Compute/CPU/ComputeSystemCPU.cpp
+		${JOLT_PHYSICS_ROOT}/Compute/CPU/ComputeSystemCPU.h
+		${JOLT_PHYSICS_ROOT}/Compute/CPU/ComputeShaderCPU.h
+		${JOLT_PHYSICS_ROOT}/Compute/CPU/HLSLToCPP.h
+		${JOLT_PHYSICS_ROOT}/Compute/CPU/ShaderWrapper.h
+		${JOLT_PHYSICS_ROOT}/Compute/CPU/WrapShaderBegin.h
+		${JOLT_PHYSICS_ROOT}/Compute/CPU/WrapShaderBindings.h
+		${JOLT_PHYSICS_ROOT}/Compute/CPU/WrapShaderEnd.h
+		${JOLT_PHYSICS_ROOT}/Shaders/HairWrapper.cpp
+		${JOLT_PHYSICS_ROOT}/Shaders/HairWrapper.h
+		${JOLT_PHYSICS_ROOT}/Shaders/TestComputeWrapper.cpp
 	)
 endif()
 
@@ -754,6 +823,11 @@ if (JPH_USE_MTL)
 	target_compile_definitions(Jolt PUBLIC JPH_USE_MTL)
 
 	target_link_libraries(Jolt LINK_PUBLIC "-framework Foundation -framework Metal -framework MetalKit")
+endif()
+
+# Compile CPU compute support
+if (JPH_USE_CPU_COMPUTE)
+	target_compile_definitions(Jolt PUBLIC JPH_USE_CPU_COMPUTE)
 endif()
 
 # Enable the debug renderer

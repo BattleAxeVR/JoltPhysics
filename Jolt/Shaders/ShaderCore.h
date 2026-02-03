@@ -21,18 +21,22 @@
 	using JPH_Plane = JPH::Float4;
 	using JPH_Mat44 = JPH::Float4[4]; // matrix, column major
 
+	#define JPH_SHADER_CONSTANT(type, name, value)	constexpr type name = value;
+
 	#define JPH_SHADER_CONSTANTS_BEGIN(type, name)	struct type {
 	#define JPH_SHADER_CONSTANTS_MEMBER(type, name)	type c##name;
-	#define JPH_SHADER_CONSTANTS_END				};
+	#define JPH_SHADER_CONSTANTS_END(type)			};
 
 	#define JPH_SHADER_BIND_BEGIN(name)
-	#define JPH_SHADER_BIND_END
+	#define JPH_SHADER_BIND_END(name)
 	#define JPH_SHADER_BIND_BUFFER(type, name)
 	#define JPH_SHADER_BIND_RW_BUFFER(type, name)
 
 	JPH_SUPPRESS_WARNING_POP
 #else
-	#pragma pack_matrix(column_major)
+	#define JPH_SUPPRESS_WARNING_PUSH
+	#define JPH_SUPPRESS_WARNING_POP
+	#define JPH_SUPPRESS_WARNINGS
 
 	typedef float JPH_float;
 	typedef float3 JPH_float3;
@@ -45,11 +49,13 @@
 	typedef int4 JPH_int4;
 	typedef float4 JPH_Quat; // xyz = imaginary part, w = real part
 	typedef float4 JPH_Plane; // xyz = normal, w = constant
-	typedef float4x4 JPH_Mat44; // matrix, column major
+	typedef float4 JPH_Mat44[4]; // matrix, column major
+
+	#define JPH_SHADER_CONSTANT(type, name, value)	static const type name = value;
 
 	#define JPH_SHADER_CONSTANTS_BEGIN(type, name)	cbuffer name {
 	#define JPH_SHADER_CONSTANTS_MEMBER(type, name)	type c##name;
-	#define JPH_SHADER_CONSTANTS_END				};
+	#define JPH_SHADER_CONSTANTS_END(type)			};
 
 	#define JPH_SHADER_FUNCTION_BEGIN(return_type, name, group_size_x, group_size_y, group_size_z) \
 		[numthreads(group_size_x, group_size_y, group_size_z)] \
@@ -61,7 +67,7 @@
 	#define JPH_SHADER_RW_BUFFER(type)				RWStructuredBuffer<type>
 
 	#define JPH_SHADER_BIND_BEGIN(name)
-	#define JPH_SHADER_BIND_END
+	#define JPH_SHADER_BIND_END(name)
 	#define JPH_SHADER_BIND_BUFFER(type, name)		JPH_SHADER_BUFFER(type) name;
 	#define JPH_SHADER_BIND_RW_BUFFER(type, name)	JPH_SHADER_RW_BUFFER(type) name;
 
@@ -70,6 +76,10 @@
 
 #define JPH_SHADER_STRUCT_BEGIN(name)				struct name {
 #define JPH_SHADER_STRUCT_MEMBER(type, name)		type m##name;
-#define JPH_SHADER_STRUCT_END						};
+#define JPH_SHADER_STRUCT_END(name)					};
+
+#define JPH_IN(type)								in type
+#define JPH_OUT(type)								out type
+#define JPH_IN_OUT(type)							in out type
 
 #endif // JPH_OVERRIDE_SHADER_MACROS

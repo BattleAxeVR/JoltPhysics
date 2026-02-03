@@ -6,12 +6,24 @@ For breaking API changes see [this document](https://github.com/jrouwe/JoltPhysi
 
 ### New functionality
 
-* Added interface to run compute shaders on the GPU with implementations for DX12, Vulkan and Metal. These interfaces can be disabled by setting `JPH_USE_DX12`, `JPH_USE_VK` and `JPH_USE_MTL` to `OFF`. To build on macOS, you'll need to have dxc and spirv-cross installed. The easiest way to install them is by installing the Vulkan SDK.
+* Added interface to run compute shaders on the GPU with implementations for DX12, Vulkan and Metal. These interfaces can be disabled by setting `JPH_USE_DX12`, `JPH_USE_VK`, `JPH_USE_MTL` and `JPH_USE_CPU_COMPUTE` to `OFF`. To build on macOS, you'll need to have dxc and spirv-cross installed. The easiest way to install them is by installing the Vulkan SDK.
+* Added a strand based hair simulation running on GPU
+	* System is based on Cosserad rods.
+	* Can use long range attachment constraints to limit the stretch of hairs.
+	* Supports simulation (guide) and render (follow) hairs.
+	* Hair vs hair collision is handled by accumulating the average velocity in a grid and using those velocities to drive hairs.
+	* Supports collision with the environment, although it only supports ConvexHull and CompoundShapes at the moment.
+	* The roots of the hairs can be skinned to the scalp mesh.
+	* Note that this is still work in progress, some things that still need to be done are listed in Hair.h.
 
 ### Bug Fixes
 
-* Made it possible to make a class outside the JPH namespace serializable.
+* Made it possible to make a class outside the `JPH` namespace serializable.
 * `VehicleConstraint`s are automatically disabled when the vehicle body is not in the `PhysicsSystem`.
+* Fixed an issue where a character could get stuck. If the character was teleported inside an area surrounded by slopes that are steeper than `mMaxSlopeAngle`, the code to stop the constraint solver from ping ponging between two planes didn't work properly.
+* Fixed an issue where collide/cast shape against a triangle would return a hit result with `mShape2Face` in incorrect winding order. This caused an incorrect normal in the enhanced internal edge removal algorithm. This in turn resulted in objects not settling properly on dense triangle grids.
+* When using `Body::AddForce` to apply gravity, bodies could gain extra energy during elastic collisions. We now cancel added forces in the direction of the contact normal if the body starts in collision to negate this energy gain.
+* Made `MoveKinematic` more accurate when rotating a body by a very small angle.
 
 ## v5.5.0
 

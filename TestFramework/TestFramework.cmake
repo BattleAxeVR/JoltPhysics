@@ -27,6 +27,7 @@ if (NOT CROSS_COMPILE_ARM AND (JPH_USE_VK OR JPH_USE_DX12 OR JPH_USE_MTL))
 		${TEST_FRAMEWORK_ROOT}/Image/ZoomImage.h
 		${TEST_FRAMEWORK_ROOT}/Input/Keyboard.h
 		${TEST_FRAMEWORK_ROOT}/Input/Mouse.h
+		${TEST_FRAMEWORK_ROOT}/Renderer/CameraState.h
 		${TEST_FRAMEWORK_ROOT}/Renderer/DebugRendererImp.cpp
 		${TEST_FRAMEWORK_ROOT}/Renderer/DebugRendererImp.h
 		${TEST_FRAMEWORK_ROOT}/Renderer/Font.cpp
@@ -306,7 +307,7 @@ if (NOT CROSS_COMPILE_ARM AND (JPH_USE_VK OR JPH_USE_DX12 OR JPH_USE_MTL))
 
 	if (WIN32)
 		# Windows configuration
-		target_link_libraries(TestFramework LINK_PUBLIC Jolt dinput8.lib shcore.lib)
+		target_link_libraries(TestFramework LINK_PUBLIC Jolt dinput8.lib shcore.lib dxguid.lib)
 	endif()
 	if (LINUX)
 		# Linux configuration
