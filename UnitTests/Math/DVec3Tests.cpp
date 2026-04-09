@@ -279,6 +279,29 @@ TEST_SUITE("DVec3Tests")
 		CHECK(d3 == d3_out);
 	}
 
+	TEST_CASE("TestDVec3StoreDouble3EdgeCases")
+	{
+		// Negative, zero, and large values to stress SIMD lane handling
+		{
+			DVec3 v(-1.23456789, 0.0, 1.23456789e10);
+			Double3 out;
+			v.StoreDouble3(&out);
+			CHECK(out.x == v.GetX());
+			CHECK(out.y == v.GetY());
+			CHECK(out.z == v.GetZ());
+		}
+
+		// Negative zero can expose SIMD mask bugs
+		{
+			DVec3 v(-0.0, -0.0, -0.0);
+			Double3 out;
+			v.StoreDouble3(&out);
+			CHECK(BitCast<uint64>(out.x) == BitCast<uint64>(v.GetX()));
+			CHECK(BitCast<uint64>(out.y) == BitCast<uint64>(v.GetY()));
+			CHECK(BitCast<uint64>(out.z) == BitCast<uint64>(v.GetZ()));
+		}
+	}
+
 	TEST_CASE("TestDVec3Cross")
 	{
 		CHECK(DVec3(1, 0, 0).Cross(DVec3(0, 1, 0)) == DVec3(0, 0, 1));
@@ -298,6 +321,10 @@ TEST_SUITE("DVec3Tests")
 	{
 		CHECK(DVec3(1.2345, -6.7891, 0).GetSign() == DVec3(1, -1, 1));
 		CHECK(DVec3(0, 2.3456, -7.8912).GetSign() == DVec3(1, 1, -1));
+		CHECK(DVec3(-0.0, 0.0, -0.0).GetSign() == DVec3(-1, 1, -1));
+		CHECK(DVec3(1.0, -1.0, 1.0).GetSign() == DVec3(1, -1, 1));
+		CHECK(DVec3(DBL_TRUE_MIN, -DBL_TRUE_MIN, DBL_TRUE_MIN).GetSign() == DVec3(1, -1, 1)); // Denormal number
+		CHECK(DVec3(numeric_limits<double>::infinity(), -numeric_limits<double>::infinity(), numeric_limits<double>::infinity()).GetSign() == DVec3(1, -1, 1));
 	}
 
 	TEST_CASE("TestDVec3ConvertToString")

@@ -111,6 +111,15 @@ TEST_SUITE("Vec4Tests")
 		CHECK(v4.GetHighestComponentIndex() == 0);
 	}
 
+	TEST_CASE("TestVec4ReduceSum")
+	{
+		Vec4 v1(1, 6, 3, 8);
+		Vec4 v2(-5, 2, -7, 4);
+
+		CHECK(v1.ReduceSum() == 1 + 6 + 3 + 8);
+		CHECK(v2.ReduceSum() == -5 + 2 - 7 + 4);
+	}
+
 	TEST_CASE("TestVec4Clamp")
 	{
 		Vec4 v1(1, 2, 3, 4);
@@ -518,6 +527,10 @@ TEST_SUITE("Vec4Tests")
 	{
 		CHECK(Vec4(1.2345f, -6.7891f, 0, 1).GetSign() == Vec4(1, -1, 1, 1));
 		CHECK(Vec4(0, 2.3456f, -7.8912f, -1).GetSign() == Vec4(1, 1, -1, -1));
+		CHECK(Vec4(-0.0f, 0.0f, -0.0f, 0.0f).GetSign() == Vec4(-1, 1, -1, 1));
+		CHECK(Vec4(1.0f, -1.0f, 1.0f, -1.0f).GetSign() == Vec4(1, -1, 1, -1));
+		CHECK(Vec4(FLT_TRUE_MIN, -FLT_TRUE_MIN, FLT_TRUE_MIN, -FLT_TRUE_MIN).GetSign() == Vec4(1, -1, 1, -1)); // Denormal number
+		CHECK(Vec4(numeric_limits<float>::infinity(), -numeric_limits<float>::infinity(), numeric_limits<float>::infinity(), -numeric_limits<float>::infinity()).GetSign() == Vec4(1, -1, 1, -1));
 	}
 
 	TEST_CASE("TestVec4FlipSign")

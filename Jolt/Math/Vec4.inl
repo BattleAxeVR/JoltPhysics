@@ -1073,7 +1073,8 @@ Vec4 Vec4::Sqrt() const
 Vec4 Vec4::GetSign() const
 {
 #if defined(JPH_USE_AVX512)
-	return _mm_fixupimm_ps(mValue, mValue, _mm_set1_epi32(0xA9A90A00), 0);
+	Type one = _mm_set1_ps(1.0f);
+	return _mm_or_ps(_mm_fixupimm_ps(mValue, mValue, _mm_set1_epi32(0xA9A90100), 0), one);
 #elif defined(JPH_USE_SSE)
 	Type minus_one = _mm_set1_ps(-1.0f);
 	Type one = _mm_set1_ps(1.0f);
@@ -1202,6 +1203,13 @@ float Vec4::ReduceMax() const
 {
 	Vec4 v = sMax(mValue, Swizzle<SWIZZLE_Y, SWIZZLE_UNUSED, SWIZZLE_W, SWIZZLE_UNUSED>());
 	v = sMax(v, v.Swizzle<SWIZZLE_Z, SWIZZLE_UNUSED, SWIZZLE_UNUSED, SWIZZLE_UNUSED>());
+	return v.GetX();
+}
+
+float Vec4::ReduceSum() const
+{
+	Vec4 v = *this + Swizzle<SWIZZLE_Y, SWIZZLE_UNUSED, SWIZZLE_W, SWIZZLE_UNUSED>();
+	v += v.Swizzle<SWIZZLE_Z, SWIZZLE_UNUSED, SWIZZLE_UNUSED, SWIZZLE_UNUSED>();
 	return v.GetX();
 }
 
