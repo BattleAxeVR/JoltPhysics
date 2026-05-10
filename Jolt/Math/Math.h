@@ -43,6 +43,21 @@ inline float CenterAngleAroundZero(float inV)
 	return inV;
 }
 
+/// Calculates inA * inB - inC * inD with higher accuracy when fused multiply add instructions are available.
+/// If inA * inB and inC * inD are large, the subtraction can cause a large loss of precision when the result is small.
+/// See: https://pharr.org/matt/blog/2019/11/03/difference-of-floats (or search for Kahan's algorithm)
+JPH_INLINE float DifferenceOfProducts(float inA, float inB, float inC, float inD)
+{
+#ifdef JPH_USE_FMADD
+	float cd = inC * inD;
+	float err = std::fma(-inC, inD, cd);
+	float dop = std::fma(inA, inB, -cd);
+	return dop + err;
+#else
+	return inA * inB - inC * inD;
+#endif
+}
+
 /// Clamp a value between two values
 template <typename T>
 JPH_INLINE constexpr T Clamp(T inV, T inMin, T inMax)
@@ -55,6 +70,38 @@ template <typename T>
 JPH_INLINE constexpr T Square(T inV)
 {
 	return inV * inV;
+}
+
+/// Take the square root of a float value
+JPH_INLINE float Sqrt(float inV)
+{
+#ifdef JPH_USE_SSE
+	return _mm_cvtss_f32(_mm_sqrt_ss(_mm_set_ss(inV)));
+#elif defined(JPH_USE_NEON)
+	return vget_lane_f32(vsqrt_f32(vdup_n_f32(inV)), 0);
+#elif defined(JPH_CPU_RISCV)
+	float res;
+	asm("fsqrt.s %0, %1" : "=f"(res) : "f"(inV));
+	return res;
+#else
+	return std::sqrt(inV);
+#endif
+}
+
+/// Take the square root of a double value
+JPH_INLINE double Sqrt(double inV)
+{
+#ifdef JPH_USE_SSE
+	return _mm_cvtsd_f64(_mm_sqrt_sd(_mm_undefined_pd(), _mm_set_sd(inV)));
+#elif defined(JPH_USE_NEON)
+	return vget_lane_f64(vsqrt_f64(vdup_n_f64(inV)), 0);
+#elif defined(JPH_CPU_RISCV)
+	double res;
+	asm("fsqrt.d %0, %1" : "=f"(res) : "f"(inV));
+	return res;
+#else
+	return std::sqrt(inV);
+#endif
 }
 
 /// Returns \f$inV^3\f$.

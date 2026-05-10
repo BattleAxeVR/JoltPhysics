@@ -262,12 +262,12 @@ TEST_SUITE("Vec3Tests")
 	TEST_CASE("TestVec3Length")
 	{
 		CHECK(Vec3(1, 2, 3).LengthSq() == float(1 + 4 + 9));
-		CHECK(Vec3(1, 2, 3).Length() == sqrt(float(1 + 4 + 9)));
+		CHECK(Vec3(1, 2, 3).Length() == Sqrt(float(1 + 4 + 9)));
 	}
 
 	TEST_CASE("TestVec3Sqrt")
 	{
-		CHECK_APPROX_EQUAL(Vec3(13, 15, 17).Sqrt(), Vec3(sqrt(13.0f), sqrt(15.0f), sqrt(17.0f)));
+		CHECK_APPROX_EQUAL(Vec3(13, 15, 17).Sqrt(), Vec3(Sqrt(13.0f), Sqrt(15.0f), Sqrt(17.0f)));
 	}
 
 	TEST_CASE("TestVec3Cross")
@@ -282,11 +282,11 @@ TEST_SUITE("Vec3Tests")
 
 	TEST_CASE("TestVec3Normalize")
 	{
-		CHECK(Vec3(3, 2, 1).Normalized() == Vec3(3, 2, 1) / sqrt(9.0f + 4.0f + 1.0f));
-		CHECK(Vec3(3, 2, 1).NormalizedOr(Vec3(1, 2, 3)) == Vec3(3, 2, 1) / sqrt(9.0f + 4.0f + 1.0f));
+		CHECK(Vec3(3, 2, 1).Normalized() == Vec3(3, 2, 1) / Sqrt(9.0f + 4.0f + 1.0f));
+		CHECK(Vec3(3, 2, 1).NormalizedOr(Vec3(1, 2, 3)) == Vec3(3, 2, 1) / Sqrt(9.0f + 4.0f + 1.0f));
 		CHECK(Vec3::sZero().NormalizedOr(Vec3(1, 2, 3)) == Vec3(1, 2, 3));
-		CHECK(Vec3(0.999f * sqrt(FLT_MIN), 0, 0).NormalizedOr(Vec3(1, 2, 3)) == Vec3(1, 2, 3)); // A vector that has a squared length that is denormal should also be treated as zero
-		CHECK_APPROX_EQUAL(Vec3(1.001f * sqrt(FLT_MIN), 0, 0).NormalizedOr(Vec3(1, 2, 3)), Vec3(1, 0, 0)); // A value that is just above being denormal should work normally
+		CHECK(Vec3(0.999f * Sqrt(FLT_MIN), 0, 0).NormalizedOr(Vec3(1, 2, 3)) == Vec3(1, 2, 3)); // A vector that has a squared length that is denormal should also be treated as zero
+		CHECK_APPROX_EQUAL(Vec3(1.001f * Sqrt(FLT_MIN), 0, 0).NormalizedOr(Vec3(1, 2, 3)), Vec3(1, 0, 0)); // A value that is just above being denormal should work normally
 	}
 
 	TEST_CASE("TestVec3Cast")
@@ -310,6 +310,22 @@ TEST_SUITE("Vec3Tests")
 			CHECK(p.IsNormalized());
 			CHECK(abs(v.Dot(p)) < 1.0e-6f);
 		}
+
+	#ifdef JPH_CROSS_PLATFORM_DETERMINISTIC
+		// Check treatment of -0.0f
+		CHECK(UVec4::sEquals(Vec3(0.0f, 0.0f, 2.0f).GetNormalizedPerpendicular().ReinterpretAsInt(), Vec3(0.0f, 1.0f, 0.0f).ReinterpretAsInt()).TestAllXYZTrue());
+		CHECK(UVec4::sEquals(Vec3(0.0f, -0.0f, 2.0f).GetNormalizedPerpendicular().ReinterpretAsInt(), Vec3(0.0f, 1.0f, 0.0f).ReinterpretAsInt()).TestAllXYZTrue());
+		CHECK(UVec4::sEquals(Vec3(-0.0f, 0.0f, 2.0f).GetNormalizedPerpendicular().ReinterpretAsInt(), Vec3(0.0f, 1.0f, 0.0f).ReinterpretAsInt()).TestAllXYZTrue());
+		CHECK(UVec4::sEquals(Vec3(-0.0f, -0.0f, 2.0f).GetNormalizedPerpendicular().ReinterpretAsInt(), Vec3(0.0f, 1.0f, 0.0f).ReinterpretAsInt()).TestAllXYZTrue());
+		CHECK(UVec4::sEquals(Vec3(0.0f, 2.0f, 0.0f).GetNormalizedPerpendicular().ReinterpretAsInt(), Vec3(0.0f, 0.0f, -1.0f).ReinterpretAsInt()).TestAllXYZTrue());
+		CHECK(UVec4::sEquals(Vec3(0.0f, 2.0f, -0.0f).GetNormalizedPerpendicular().ReinterpretAsInt(), Vec3(0.0f, -0.0f, -1.0f).ReinterpretAsInt()).TestAllXYZTrue());
+		CHECK(UVec4::sEquals(Vec3(-0.0f, 2.0f, 0.0f).GetNormalizedPerpendicular().ReinterpretAsInt(), Vec3(0.0f, 0.0f, -1.0f).ReinterpretAsInt()).TestAllXYZTrue());
+		CHECK(UVec4::sEquals(Vec3(-0.0f, 2.0f, -0.0f).GetNormalizedPerpendicular().ReinterpretAsInt(), Vec3(0.0f, -0.0f, -1.0f).ReinterpretAsInt()).TestAllXYZTrue());
+		CHECK(UVec4::sEquals(Vec3(2.0f, 0.0f, 0.0f).GetNormalizedPerpendicular().ReinterpretAsInt(), Vec3(0.0f, 0.0f, -1.0f).ReinterpretAsInt()).TestAllXYZTrue());
+		CHECK(UVec4::sEquals(Vec3(2.0f, 0.0f, -0.0f).GetNormalizedPerpendicular().ReinterpretAsInt(), Vec3(-0.0f, 0.0f, -1.0f).ReinterpretAsInt()).TestAllXYZTrue());
+		CHECK(UVec4::sEquals(Vec3(2.0f, -0.0f, 0.0f).GetNormalizedPerpendicular().ReinterpretAsInt(), Vec3(0.0f, 0.0f, -1.0f).ReinterpretAsInt()).TestAllXYZTrue());
+		CHECK(UVec4::sEquals(Vec3(2.0f, -0.0f, -0.0f).GetNormalizedPerpendicular().ReinterpretAsInt(), Vec3(-0.0f, 0.0f, -1.0f).ReinterpretAsInt()).TestAllXYZTrue());
+	#endif
 	}
 
 	TEST_CASE("TestVec3Sign")
@@ -408,5 +424,18 @@ TEST_SUITE("Vec3Tests")
 			float diff = (decompressed - v).Length();
 			CHECK(diff < 1.0e-4f);
 		}
+	}
+
+	TEST_CASE("TestDifferenceOfProducts")
+	{
+		Vec3 a = Vec3(33962.035f, 33962.0351f, 33962.0352f), b = Vec3(-30438.8f, -30438.801f, -30438.802f), c = Vec3(41563.4f, 41563.401f, 41563.402f), d = Vec3(-24871.969f, -24871.970f, -24871.971f);
+		Vec3 result = Vec3::sDifferenceOfProducts(a, b, c, d);
+		DVec3 expected = DVec3(a) * DVec3(b) - DVec3(c) * DVec3(d);
+		CHECK(expected == DVec3(-75.165603637695312, 103.16904449462891, 36.836944580078125));
+	#ifdef JPH_USE_FMADD
+		CHECK(result == Vec3(expected));
+	#else
+		CHECK(result == Vec3(-128.0f, 64.0f, 0.0f)); // The products are in the order of 10^9, so the subtraction causes a large loss of precision and we get a very different result. This is expected when fused multiply add instructions are not available.
+	#endif
 	}
 }

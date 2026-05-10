@@ -12,6 +12,7 @@
 #include <Jolt/Compute/DX12/ComputeBufferDX12.h>
 #include <Jolt/Core/StringTools.h>
 #include <Jolt/Core/UnorderedMap.h>
+#include <Jolt/Core/FPException.h>
 
 JPH_SUPPRESS_WARNINGS_STD_BEGIN
 JPH_MSVC_SUPPRESS_WARNING(5204) // 'X': class has virtual functions, but its trivial destructor is not virtual; instances of objects derived from this class may not be destructed correctly
@@ -30,17 +31,29 @@ JPH_IMPLEMENT_RTTI_VIRTUAL(ComputeSystemDX12)
 	JPH_ADD_BASE_CLASS(ComputeSystemDX12, ComputeSystem)
 }
 
-void ComputeSystemDX12::Initialize(ID3D12Device *inDevice)
+bool ComputeSystemDX12::Initialize(ID3D12Device *inDevice, ComputeSystemResult &outResult)
 {
 	mDevice = inDevice;
 
 	// Dynamically load dxcompiler.dll
-	HMODULE dxc_module = LoadLibraryW(L"dxcompiler.dll");
-	mDxcCreateInstanceFn = dxc_module != nullptr? GetProcAddress(dxc_module, "DxcCreateInstance") : nullptr;
+	HMODULE dxc_module = LoadLibraryA("dxcompiler.dll");
+	if (dxc_module == nullptr)
+	{
+		outResult.SetError("Failed to load dxcompiler.dll");
+		return false;
+	}
+
+	mDxcCreateInstanceFn = GetProcAddress(dxc_module, "DxcCreateInstance");
+	JPH_ASSERT(mDxcCreateInstanceFn != nullptr);
+	return true;
 }
 
 void ComputeSystemDX12::Shutdown()
 {
+	// Releasing the device can cause invalid floating point operation exceptions inside the DirectX driver
+	FPExceptionDisableInvalid disable_invalid;
+	JPH_UNUSED(disable_invalid);
+
 	mDevice.Reset();
 }
 
@@ -88,11 +101,6 @@ ComputeShaderResult ComputeSystemDX12::CreateComputeShader(const char *inName, u
 	}
 
 	// Create IDxcUtils object
-	if (mDxcCreateInstanceFn == nullptr)
-	{
-		result.SetError("Failed to load dxcompiler.dll");
-		return result;
-	}
 	ComPtr<IDxcUtils> utils;
 	reinterpret_cast<DxcCreateInstanceProc>(reinterpret_cast<void *>(mDxcCreateInstanceFn))(CLSID_DxcUtils, IID_PPV_ARGS(utils.GetAddressOf()));
 

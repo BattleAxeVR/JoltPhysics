@@ -349,28 +349,25 @@ UVec4 Vec4::sGreaterOrEqual(Vec4Arg inV1, Vec4Arg inV2)
 
 Vec4 Vec4::sFusedMultiplyAdd(Vec4Arg inMul1, Vec4Arg inMul2, Vec4Arg inAdd)
 {
-#if defined(JPH_USE_SSE)
-	#ifdef JPH_USE_FMADD
+#ifdef JPH_USE_FMADD
+	#ifdef JPH_USE_SSE
 		return _mm_fmadd_ps(inMul1.mValue, inMul2.mValue, inAdd.mValue);
+	#elif defined(JPH_USE_NEON)
+		return vmlaq_f32(inAdd.mValue, inMul1.mValue, inMul2.mValue);
+	#elif defined(JPH_USE_RVV)
+		Vec4 res;
+		const vfloat32m1_t v1 = __riscv_vle32_v_f32m1(inMul1.mF32, 4);
+		const vfloat32m1_t v2 = __riscv_vle32_v_f32m1(inMul2.mF32, 4);
+		const vfloat32m1_t rvv_add = __riscv_vle32_v_f32m1(inAdd.mF32, 4);
+		const vfloat32m1_t mul = __riscv_vfmul_vv_f32m1(v1, v2, 4);
+		const vfloat32m1_t fmadd = __riscv_vfadd_vv_f32m1(rvv_add, mul, 4);
+		__riscv_vse32_v_f32m1(res.mF32, fmadd, 4);
+		return res;
 	#else
-		return _mm_add_ps(_mm_mul_ps(inMul1.mValue, inMul2.mValue), inAdd.mValue);
+		return inMul1 * inMul2 + inAdd;
 	#endif
-#elif defined(JPH_USE_NEON)
-	return vmlaq_f32(inAdd.mValue, inMul1.mValue, inMul2.mValue);
-#elif defined(JPH_USE_RVV)
-	Vec4 res;
-	const vfloat32m1_t v1 = __riscv_vle32_v_f32m1(inMul1.mF32, 4);
-	const vfloat32m1_t v2 = __riscv_vle32_v_f32m1(inMul2.mF32, 4);
-	const vfloat32m1_t rvv_add = __riscv_vle32_v_f32m1(inAdd.mF32, 4);
-	const vfloat32m1_t mul = __riscv_vfmul_vv_f32m1(v1, v2, 4);
-	const vfloat32m1_t fmadd = __riscv_vfadd_vv_f32m1(rvv_add, mul, 4);
-	__riscv_vse32_v_f32m1(res.mF32, fmadd, 4);
-	return res;
 #else
-	return Vec4(inMul1.mF32[0] * inMul2.mF32[0] + inAdd.mF32[0],
-				inMul1.mF32[1] * inMul2.mF32[1] + inAdd.mF32[1],
-				inMul1.mF32[2] * inMul2.mF32[2] + inAdd.mF32[2],
-				inMul1.mF32[3] * inMul2.mF32[3] + inAdd.mF32[3]);
+	return inMul1 * inMul2 + inAdd;
 #endif
 }
 
@@ -977,6 +974,18 @@ Vec4 Vec4::Reciprocal() const
 	return sOne() / mValue;
 }
 
+Vec4 Vec4::sDifferenceOfProducts(Vec4Arg inA, Vec4Arg inB, Vec4Arg inC, Vec4Arg inD)
+{
+#ifdef JPH_USE_FMADD
+	Vec4 cd = inC * inD;
+	Vec4 err = Vec4::sFusedMultiplyAdd(-inC, inD, cd);
+	Vec4 dop = Vec4::sFusedMultiplyAdd(inA, inB, -cd);
+	return dop + err;
+#else
+	return inA * inB - inC * inD;
+#endif
+}
+
 Vec4 Vec4::DotV(Vec4Arg inV2) const
 {
 #if defined(JPH_USE_SSE4_1)
@@ -989,8 +998,8 @@ Vec4 Vec4::DotV(Vec4Arg inV2) const
 	const vfloat32m1_t v1 = __riscv_vle32_v_f32m1(mF32, 4);
 	const vfloat32m1_t v2 = __riscv_vle32_v_f32m1(inV2.mF32, 4);
 	const vfloat32m1_t mul = __riscv_vfmul_vv_f32m1(v1, v2, 4);
-	float dot = RVVSumElementsFloat32x4(mul);
-	const vfloat32m1_t splat = __riscv_vfmv_v_f_f32m1(dot, 4);
+	vfloat32m1_t dot = RVVSumElementsFloat32x4(mul);
+	const vfloat32m1_t splat = __riscv_vrgather_vx_f32m1(dot, 0, 4);
 	__riscv_vse32_v_f32m1(res.mF32, splat, 4);
 	return res;
 #else
@@ -1010,7 +1019,7 @@ float Vec4::Dot(Vec4Arg inV2) const
 	const vfloat32m1_t v1 = __riscv_vle32_v_f32m1(mF32, 4);
 	const vfloat32m1_t v2 = __riscv_vle32_v_f32m1(inV2.mF32, 4);
 	const vfloat32m1_t mul = __riscv_vfmul_vv_f32m1(v1, v2, 4);
-	return RVVSumElementsFloat32x4(mul);
+	return __riscv_vfmv_f_s_f32m1_f32(RVVSumElementsFloat32x4(mul));
 #else
 	// Brackets placed so that the order is consistent with the vectorized version
 	return (mF32[0] * inV2.mF32[0] + mF32[1] * inV2.mF32[1]) + (mF32[2] * inV2.mF32[2] + mF32[3] * inV2.mF32[3]);
@@ -1027,7 +1036,7 @@ float Vec4::LengthSq() const
 #elif defined(JPH_USE_RVV)
 	const vfloat32m1_t v = __riscv_vle32_v_f32m1(mF32, 4);
 	const vfloat32m1_t mul = __riscv_vfmul_vv_f32m1(v, v, 4);
-	return RVVSumElementsFloat32x4(mul);
+	return __riscv_vfmv_f_s_f32m1_f32(RVVSumElementsFloat32x4(mul));
 #else
 	// Brackets placed so that the order is consistent with the vectorized version
 	return (mF32[0] * mF32[0] + mF32[1] * mF32[1]) + (mF32[2] * mF32[2] + mF32[3] * mF32[3]);
@@ -1045,10 +1054,12 @@ float Vec4::Length() const
 #elif defined(JPH_USE_RVV)
 	const vfloat32m1_t v = __riscv_vle32_v_f32m1(mF32, 4);
 	const vfloat32m1_t mul = __riscv_vfmul_vv_f32m1(v, v, 4);
-	return sqrt(RVVSumElementsFloat32x4(mul));
+	const vfloat32m1_t sum = RVVSumElementsFloat32x4(mul);
+	const vfloat32m1_t sqrt = __riscv_vfsqrt_v_f32m1(sum, 1);
+	return __riscv_vfmv_f_s_f32m1_f32(sqrt);
 #else
 	// Brackets placed so that the order is consistent with the vectorized version
-	return sqrt((mF32[0] * mF32[0] + mF32[1] * mF32[1]) + (mF32[2] * mF32[2] + mF32[3] * mF32[3]));
+	return JPH::Sqrt((mF32[0] * mF32[0] + mF32[1] * mF32[1]) + (mF32[2] * mF32[2] + mF32[3] * mF32[3]));
 #endif
 }
 
@@ -1065,7 +1076,7 @@ Vec4 Vec4::Sqrt() const
 	__riscv_vse32_v_f32m1(res.mF32, rvv_sqrt, 4);
 	return res;
 #else
-	return Vec4(sqrt(mF32[0]), sqrt(mF32[1]), sqrt(mF32[2]), sqrt(mF32[3]));
+	return Vec4(JPH::Sqrt(mF32[0]), JPH::Sqrt(mF32[1]), JPH::Sqrt(mF32[2]), JPH::Sqrt(mF32[3]));
 #endif
 }
 
@@ -1119,8 +1130,11 @@ Vec4 Vec4::Normalized() const
 #elif defined(JPH_USE_RVV)
 	const vfloat32m1_t v = __riscv_vle32_v_f32m1(mF32, 4);
 	const vfloat32m1_t mul = __riscv_vfmul_vv_f32m1(v, v, 4);
-	const float length = sqrt(RVVSumElementsFloat32x4(mul));
-	const vfloat32m1_t norm_v = __riscv_vfdiv_vf_f32m1(v, length, 4);
+
+	const vfloat32m1_t sum = RVVSumElementsFloat32x4(mul);
+	const vfloat32m1_t sum_splat = __riscv_vrgather_vx_f32m1(sum, 0, 4);
+	const vfloat32m1_t sqrt = __riscv_vfsqrt_v_f32m1(sum_splat, 4);
+	const vfloat32m1_t norm_v = __riscv_vfdiv_vv_f32m1(v, sqrt, 4);
 
 	Vec4 vec;
 	__riscv_vse32_v_f32m1(vec.mF32, norm_v, 4);
@@ -1473,7 +1487,7 @@ Vec4 Vec4::sDecompressUnitVector(uint32 inValue)
 	JPH_ASSERT(v.GetW() == 0.0f);
 
 	// Restore the highest component
-	v.SetW(sqrt(max(1.0f - v.LengthSq(), 0.0f)));
+	v.SetW(JPH::Sqrt(max(1.0f - v.LengthSq(), 0.0f)));
 
 	// Extract sign
 	if ((inValue & 0x80000000u) != 0)
