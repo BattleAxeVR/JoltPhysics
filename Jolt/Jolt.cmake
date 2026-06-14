@@ -318,6 +318,7 @@ set(JOLT_PHYSICS_SRC_FILES
 	${JOLT_PHYSICS_ROOT}/Physics/Constraints/ConstraintManager.cpp
 	${JOLT_PHYSICS_ROOT}/Physics/Constraints/ConstraintManager.h
 	${JOLT_PHYSICS_ROOT}/Physics/Constraints/ConstraintPart/AngleConstraintPart.h
+	${JOLT_PHYSICS_ROOT}/Physics/Constraints/ConstraintPart/AngularFrictionConstraintPart.h
 	${JOLT_PHYSICS_ROOT}/Physics/Constraints/ConstraintPart/AxisConstraintPart.h
 	${JOLT_PHYSICS_ROOT}/Physics/Constraints/ConstraintPart/ContactConstraintPart.h
 	${JOLT_PHYSICS_ROOT}/Physics/Constraints/ConstraintPart/DualAxisConstraintPart.h
@@ -778,6 +779,9 @@ source_group(TREE ${JOLT_PHYSICS_ROOT} FILES ${JOLT_PHYSICS_SRC_FILES} ${JOLT_PH
 
 # Create Jolt lib
 if (JPH_BUILD_SHARED_LIBS)
+	# Set default visibility to hidden
+	set(CMAKE_CXX_VISIBILITY_PRESET hidden)
+
 	set(JPH_LIB_TYPE SHARED)
 else()
 	set(JPH_LIB_TYPE STATIC)
@@ -786,13 +790,10 @@ add_library(Jolt ${JPH_LIB_TYPE} ${JOLT_PHYSICS_SRC_FILES} ${JOLT_PHYSICS_SHADER
 add_library(Jolt::Jolt ALIAS Jolt)
 
 if (JPH_BUILD_SHARED_LIBS)
-	# Set default visibility to hidden
-	set(CMAKE_CXX_VISIBILITY_PRESET hidden)
-
 	if (GENERATE_DEBUG_SYMBOLS)
 		if (MSVC)
 			# MSVC specific option to enable PDB generation
-			set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} /DEBUG:FASTLINK")
+			set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} /DEBUG:FULL")
 		else()
 			# Clang/GCC option to enable debug symbol generation
 			set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} -g")

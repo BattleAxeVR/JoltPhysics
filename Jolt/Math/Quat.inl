@@ -259,12 +259,13 @@ Quat Quat::sFromTo(Vec3Arg inFrom, Vec3Arg inTo)
 template <class Random>
 Quat Quat::sRandom(Random &inRandom)
 {
-	std::uniform_real_distribution<float> zero_to_one(0.0f, 1.0f);
-	float x0 = zero_to_one(inRandom);
+	// Using Uniform Random Rotations - Graphics Gems III - Ken Shoemake
+	float x0 = float(inRandom() - inRandom.min()) / float(inRandom.max() - inRandom.min());
 	float r1 = Sqrt(1.0f - x0), r2 = Sqrt(x0);
-	std::uniform_real_distribution<float> zero_to_two_pi(0.0f, 2.0f * JPH_PI);
+	float theta1 = 2.0f * JPH_PI * float(inRandom() - inRandom.min()) / float(inRandom.max() - inRandom.min());
+	float theta2 = 2.0f * JPH_PI * float(inRandom() - inRandom.min()) / float(inRandom.max() - inRandom.min());
 	Vec4 s, c;
-	Vec4(zero_to_two_pi(inRandom), zero_to_two_pi(inRandom), 0, 0).SinCos(s, c);
+	Vec4(theta1, theta2, 0, 0).SinCos(s, c);
 	return Quat(s.GetX() * r1, c.GetX() * r1, s.GetY() * r2, c.GetY() * r2);
 }
 
@@ -290,20 +291,21 @@ Quat Quat::sEulerAngles(Vec3Arg inAngles)
 
 Vec3 Quat::GetEulerAngles() const
 {
-	float y_sq = GetY() * GetY();
+	float x = GetX(), y = GetY(), z = GetZ(), w = GetW();
+	float y_sq = y * y;
 
 	// X
-	float t0 = 2.0f * (GetW() * GetX() + GetY() * GetZ());
-	float t1 = 1.0f - 2.0f * (GetX() * GetX() + y_sq);
+	float t0 = 2.0f * (w * x + y * z);
+	float t1 = 1.0f - 2.0f * (x * x + y_sq);
 
 	// Y
-	float t2 = 2.0f * (GetW() * GetY() - GetZ() * GetX());
+	float t2 = 2.0f * (w * y - z * x);
 	t2 = t2 > 1.0f? 1.0f : t2;
 	t2 = t2 < -1.0f? -1.0f : t2;
 
 	// Z
-	float t3 = 2.0f * (GetW() * GetZ() + GetX() * GetY());
-	float t4 = 1.0f - 2.0f * (y_sq + GetZ() * GetZ());
+	float t3 = 2.0f * (w * z + x * y);
+	float t4 = 1.0f - 2.0f * (y_sq + z * z);
 
 	return Vec3(ATan2(t0, t1), ASin(t2), ATan2(t3, t4));
 }
@@ -338,7 +340,7 @@ void Quat::GetSwingTwist(Quat &outSwing, Quat &outTwist) const
 Quat Quat::LERP(QuatArg inDestination, float inFraction) const
 {
 	float scale0 = 1.0f - inFraction;
-	return Quat(Vec4::sReplicate(scale0) * mValue + Vec4::sReplicate(inFraction) * inDestination.mValue);
+	return Quat(scale0 * mValue + inFraction * inDestination.mValue);
 }
 
 Quat Quat::SLERP(QuatArg inDestination, float inFraction) const
@@ -375,7 +377,7 @@ Quat Quat::SLERP(QuatArg inDestination, float inFraction) const
 	}
 
 	// Interpolate between the two quaternions
-	return Quat(Vec4::sReplicate(scale0) * mValue + Vec4::sReplicate(scale1) * inDestination.mValue).Normalized();
+	return Quat(scale0 * mValue + scale1 * inDestination.mValue).Normalized();
 }
 
 Vec3 Quat::operator * (Vec3Arg inValue) const

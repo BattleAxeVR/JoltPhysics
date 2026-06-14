@@ -398,8 +398,8 @@
 	JPH_MSVC_SUPPRESS_WARNING(5264) /* 'X': 'const' variable is not used */						\
 	JPH_MSVC_SUPPRESS_WARNING(4251) /* class 'X' needs to have DLL-interface to be used by clients of class 'Y' */ \
 	JPH_MSVC_SUPPRESS_WARNING(4738) /* storing 32-bit float result in memory, possible loss of performance */ \
-	JPH_MSVC_SUPPRESS_WARNING(4714)
-	JPH_MSVC2019_SUPPRESS_WARNING(5246) /* the initialization of a subobject should be wrapped in braces */
+	JPH_MSVC2019_SUPPRESS_WARNING(5246) /* the initialization of a subobject should be wrapped in braces */ \
+	JPH_MSVC2026_PLUS_SUPPRESS_WARNING(5291) /* 'X': deriving from the base class 'Y' can cause potential runtime issues due to an ABI bug. Recommend adding a 4-byte data member to the base class for the padding at the end of it to work around this bug. */
 
 // OS-specific includes
 #if defined(JPH_PLATFORM_WINDOWS)
@@ -608,6 +608,28 @@ static_assert(sizeof(uint64) == 8, "Invalid size of uint64");
 // Macro to indicate that a parameter / variable is unused
 #define JPH_UNUSED(x)			(void)x
 
+// Macro to enable floating point precise mode
+#if defined(JPH_COMPILER_CLANG)
+	#define JPH_PRECISE_MATH_ON										\
+		_Pragma("clang diagnostic push")							\
+		_Pragma("clang diagnostic ignored \"-Wignored-pragmas\"")	\
+		_Pragma("float_control(precise, on, push)")					\
+		_Pragma("clang diagnostic pop")
+	#define JPH_PRECISE_MATH_OFF									\
+		_Pragma("clang diagnostic push")							\
+		_Pragma("clang diagnostic ignored \"-Wignored-pragmas\"")	\
+		_Pragma("float_control(pop)")								\
+		_Pragma("clang diagnostic pop")
+#elif defined(JPH_COMPILER_MSVC)
+	#define JPH_PRECISE_MATH_ON										\
+		__pragma(float_control(precise, on, push))
+	#define JPH_PRECISE_MATH_OFF									\
+		__pragma(float_control(pop))
+#else
+	#define JPH_PRECISE_MATH_ON
+	#define JPH_PRECISE_MATH_OFF
+#endif
+
 // Check if Thread Sanitizer is enabled
 #ifdef __has_feature
 	#if __has_feature(thread_sanitizer)
@@ -643,8 +665,8 @@ static_assert(sizeof(uint64) == 8, "Invalid size of uint64");
 #endif // JPH_PLATFORM_WINDOWS
 
 // Metal is only supported on Apple platforms
-#if defined(JPH_USE_METAL) && !defined(JPH_PLATFORM_MACOS) && !defined(JPH_PLATFORM_IOS)
-	#undef JPH_USE_METAL
+#if defined(JPH_USE_MTL) && !defined(JPH_PLATFORM_MACOS) && !defined(JPH_PLATFORM_IOS)
+	#undef JPH_USE_MTL
 #endif // !JPH_PLATFORM_MACOS && !JPH_PLATFORM_IOS
 
 JPH_NAMESPACE_END

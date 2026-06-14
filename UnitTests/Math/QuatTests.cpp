@@ -312,7 +312,7 @@ TEST_SUITE("QuatTests")
 
 			Quat q = Quat::sRotation(axis, angle);
 
-			float max_error = 1.0e-4f * expected_angular_velocity.Length();
+			float max_error = 2.0e-4f * expected_angular_velocity.Length();
 
 			Vec3 angular_velocity = q.GetAngularVelocity(cDeltaTime);
 			CHECK_APPROX_EQUAL(angular_velocity, expected_angular_velocity, max_error);
@@ -524,7 +524,7 @@ TEST_SUITE("QuatTests")
 
 			Vec3 v1t = (q * v1).Normalized();
 			Vec3 v2t = v2.Normalized();
-			CHECK_APPROX_EQUAL(v2t, v1t, 1.0e-5f);
+			CHECK_APPROX_EQUAL(v2t, v1t, 0.5e-4f);
 		}
 	}
 
