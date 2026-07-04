@@ -1,5 +1,3 @@
-[TOC]
-
 # Architecture of Jolt Physics {#architecture-jolt-physics}
 
 # Getting Started {#getting-started}
